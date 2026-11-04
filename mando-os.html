@@ -1,0 +1,2693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080b09">
+<meta name="description" content="MANDO OS: an interactive operating-system experience for your browser. Works offline.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MANDO OS">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>MANDO OS</title>
+<style>
+/* MANDO OS styles: tokens, shell, shared components. App-specific styles live in apps.css. */
+:root {
+  color-scheme: dark;
+  --bg: #080b09; --s1: #101612; --s2: #171f19; --s3: #202a22;
+  --green: #537d5b; --accent: #8dbb91; --accent-text: #8dbb91; --on-accent: #07110a;
+  --text: #f5f7f4; --text2: #a5aea6; --muted: #7f8a81;
+  --border: rgba(255, 255, 255, 0.09); --glow: rgba(83, 125, 91, 0.18);
+  --danger: #e58f84; --ok: #8dbb91; --warn: #e2c27a;
+  --r: 16px; --r-sm: 10px; --r-lg: 24px;
+  --gap: 12px; --pad: 16px;
+  --bar-h: 40px; --dock-h: 68px;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+:root[data-accent="mint"] { --accent: #7fd1ae; --green: #3f8f73; }
+:root[data-accent="moss"] { --accent: #b5c97a; --green: #76873f; }
+:root[data-accent="pine"] { --accent: #6fb3a0; --green: #3f7a6b; }
+:root[data-density="compact"] { --gap: 8px; --pad: 12px; }
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --bg: #eef2ee; --s1: #ffffff; --s2: #f3f6f3; --s3: #e4eae4;
+    --accent-text: color-mix(in srgb, var(--accent) 40%, #0b1a0f);
+    --text: #0e1410; --text2: #455048; --muted: #5a665c;
+    --border: rgba(0, 0, 0, 0.12); --glow: rgba(83, 125, 91, 0.16);
+    --danger: #a8372b; --ok: #2f6b3b; --warn: #8a6410;
+    --shadow: 0 10px 30px rgba(20, 40, 25, 0.18);
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2ee; --s1: #ffffff; --s2: #f3f6f3; --s3: #e4eae4;
+  --accent-text: color-mix(in srgb, var(--accent) 40%, #0b1a0f);
+  --text: #0e1410; --text2: #455048; --muted: #5a665c;
+  --border: rgba(0, 0, 0, 0.12); --glow: rgba(83, 125, 91, 0.16);
+  --danger: #a8372b; --ok: #2f6b3b; --warn: #8a6410;
+  --shadow: 0 10px 30px rgba(20, 40, 25, 0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body {
+  background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.45;
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none; touch-action: manipulation;
+}
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; border-radius: 6px; }
+::selection { background: var(--glow); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--s3); border-radius: 8px; }
+
+#os { position: fixed; inset: 0; background: var(--bg); overflow: hidden; }
+#wall { position: absolute; inset: 0; background: var(--bg); }
+:root[data-wall="forest"] #wall { background: radial-gradient(120% 70% at 20% 0%, rgba(83,125,91,0.34), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(83,125,91,0.18), transparent 60%), var(--bg); }
+:root[data-wall="dusk"] #wall { background: linear-gradient(170deg, rgba(60,110,110,0.30) 0%, transparent 55%), radial-gradient(80% 50% at 0% 100%, rgba(83,125,91,0.22), transparent 70%), var(--bg); }
+:root[data-wall="grid"] #wall { background: linear-gradient(rgba(141,187,145,0.07) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(141,187,145,0.07) 1px, transparent 1px) 0 0 / 32px 32px, radial-gradient(100% 60% at 50% 0%, rgba(83,125,91,0.22), transparent 70%), var(--bg); }
+:root[data-wall="plain"] #wall { background: var(--bg); }
+#stage { position: absolute; inset: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+
+/* ---------- status bar ---------- */
+#statusbar { position: absolute; z-index: 25; top: 0; left: 0; right: 0; height: var(--bar-h); display: flex; align-items: center; gap: 4px; padding: 0 8px 0 16px; font-size: 13px; font-variant-numeric: tabular-nums; }
+#statusbar .time { font-weight: 600; letter-spacing: 0.02em; }
+#statusbar .spacer { flex: 1; }
+.sb-ind { display: inline-flex; align-items: center; gap: 4px; color: var(--text2); padding: 0 4px; min-height: 28px; font-size: 12px; }
+.sb-btn { position: relative; width: 40px; height: 40px; display: grid; place-items: center; background: none; border: 0; border-radius: 12px; color: var(--text); }
+.sb-btn:active { background: var(--s2); }
+.badge { position: absolute; top: 4px; right: 2px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.batt { display: inline-flex; align-items: center; gap: 4px; }
+.batt i { display: inline-block; width: 20px; height: 10px; border: 1.5px solid var(--text2); border-radius: 3px; position: relative; }
+.batt i::after { content: ""; position: absolute; left: 1px; top: 1px; bottom: 1px; width: var(--lvl, 100%); max-width: calc(100% - 2px); background: var(--accent-text); border-radius: 1px; }
+.batt i::before { content: ""; position: absolute; right: -4px; top: 2px; width: 2px; height: 4px; background: var(--text2); border-radius: 0 1px 1px 0; }
+
+/* ---------- home ---------- */
+#home { position: absolute; z-index: 1; top: var(--bar-h); bottom: var(--dock-h); left: 0; right: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px max(16px, 0px) 24px; }
+.home-inner { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.wordmark { font-weight: 800; letter-spacing: 0.34em; font-size: 13px; color: var(--text); }
+.wordmark b { color: var(--accent-text); font-weight: 700; letter-spacing: 0.2em; margin-left: 0.5em; }
+.clock-block { padding: 12px 4px 0; }
+.clock-big { font-size: clamp(52px, 17vw, 92px); font-weight: 300; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.clock-date { color: var(--text2); margin-top: 6px; }
+.clock-greet { color: var(--accent-text); margin-top: 2px; font-weight: 600; }
+.card { background: color-mix(in srgb, var(--s1) 88%, transparent); border: 1px solid var(--border); border-radius: var(--r); padding: var(--pad); }
+.overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: var(--gap); }
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat b { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--text2); font-size: 12px; }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.search { display: flex; align-items: center; gap: 8px; background: var(--s1); border: 1px solid var(--border); border-radius: 14px; padding: 0 12px; min-height: 46px; color: var(--text2); }
+.search input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--text); min-height: 44px; }
+.search:focus-within { border-color: var(--accent-text); }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); }
+.tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; padding: var(--pad); background: color-mix(in srgb, var(--s1) 88%, transparent); border: 1px solid var(--border); border-radius: var(--r); min-height: 112px; min-width: 0; }
+.tile:active { background: var(--s2); }
+.tile .ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--glow); color: var(--accent-text); border: 1px solid var(--border); flex: none; }
+.tile .nm { font-weight: 600; }
+.tile .ds { color: var(--text2); font-size: 12.5px; line-height: 1.35; }
+.tile .nm, .tile .ds { display: block; overflow-wrap: anywhere; }
+.tile-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; }
+.mini { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--s2); color: var(--text); }
+.mini[disabled] { opacity: 0.35; }
+@media (min-width: 560px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 900px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* ---------- dock ---------- */
+#dock { position: absolute; z-index: 20; left: 0; right: 0; bottom: 0; height: var(--dock-h); display: flex; justify-content: center; align-items: center; gap: 4px; padding: 6px 8px; background: color-mix(in srgb, var(--bg) 82%, transparent); border-top: 1px solid var(--border); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.dk { position: relative; width: 52px; height: 52px; border-radius: 15px; border: 0; background: none; color: var(--text2); display: grid; place-items: center; flex: none; }
+.dk:active, .dk:hover { background: var(--s2); color: var(--text); }
+.dk.run::after { content: ""; position: absolute; bottom: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.dk.cur { background: var(--glow); color: var(--accent-text); }
+.dk-sep { width: 1px; height: 28px; background: var(--border); margin: 0 4px; }
+@media (max-width: 380px) { .dk { width: 46px; } }
+
+/* ---------- windows ---------- */
+#windows { position: absolute; z-index: 10; inset: var(--bar-h) 0 var(--dock-h) 0; pointer-events: none; }
+.win { position: absolute; inset: 0; pointer-events: auto; background: var(--bg); display: none; flex-direction: column; overflow: hidden; animation: winIn 0.22s ease-out; }
+.win.front:not(.min) { display: flex; }
+.win-bar { display: flex; align-items: center; gap: 6px; min-height: 48px; padding: 4px 8px; border-bottom: 1px solid var(--border); background: var(--s1); flex: none; user-select: none; -webkit-user-select: none; }
+.win-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.win-title svg { color: var(--accent-text); flex: none; }
+.wb { width: 40px; height: 40px; display: grid; place-items: center; border: 0; background: none; border-radius: 12px; color: var(--text); flex: none; }
+.wb:active, .wb:hover { background: var(--s3); }
+.wb.min-btn { display: none; }
+.win-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; position: relative; }
+@keyframes winIn { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
+
+@media (min-width: 900px) and (hover: hover) {
+  .win { inset: auto; left: var(--x, 80px); top: var(--y, 20px); width: var(--w, 560px); height: var(--h, 600px); min-width: 340px; min-height: 360px; max-width: 100%; max-height: 100%; border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); resize: both; }
+  .win:not(.min) { display: flex; }
+  .win.front { z-index: 5; }
+  .win:not(.front) { opacity: 0.96; }
+  .win-bar { cursor: grab; }
+  .wb.min-btn { display: grid; }
+  .wb.back-btn { display: none; }
+  #home { padding-inline: 32px; }
+}
+
+/* ---------- panels (notifications, quick settings) ---------- */
+#scrim { position: absolute; inset: 0; z-index: 39; background: rgba(0, 0, 0, 0.45); }
+.panel { position: absolute; z-index: 40; top: 0; left: 0; right: 0; max-height: 86%; overflow: auto; background: var(--s1); border-bottom: 1px solid var(--border); border-radius: 0 0 var(--r-lg) var(--r-lg); box-shadow: var(--shadow); padding: 12px 16px 18px; animation: panelIn 0.2s ease-out; }
+@media (min-width: 640px) { .panel { left: auto; right: 12px; top: 8px; width: 400px; border-radius: var(--r-lg); border: 1px solid var(--border); } }
+@keyframes panelIn { from { transform: translateY(-16px); opacity: 0; } to { transform: none; opacity: 1; } }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.panel-head h2 { font-size: 17px; }
+.notif { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--s2); margin-bottom: 8px; }
+.notif.error { border-color: var(--danger); }
+.notif b { font-weight: 600; }
+.notif small { color: var(--muted); }
+.qs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.qs { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--s2); border: 1px solid var(--border); text-align: left; min-height: 74px; }
+.qs[aria-pressed="true"] { background: var(--glow); border-color: var(--accent-text); }
+.qs small { color: var(--text2); }
+.qs svg { color: var(--accent-text); }
+
+/* ---------- switcher ---------- */
+#switcher { position: absolute; z-index: 30; inset: var(--bar-h) 0 var(--dock-h) 0; background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); overflow-y: auto; padding: 16px; }
+.sw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--gap); max-width: 760px; margin: 0 auto; }
+.sw-card { position: relative; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); text-align: left; min-height: 120px; }
+.sw-card.cur { border-color: var(--accent-text); }
+.sw-card .x { position: absolute; top: 6px; right: 6px; }
+
+/* ---------- lock screen ---------- */
+#lock { position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; padding: calc(env(safe-area-inset-top, 0px) + 56px) 24px calc(env(safe-area-inset-bottom, 0px) + 28px); touch-action: none; transition: transform 0.35s cubic-bezier(.2,.8,.2,1), opacity 0.35s; }
+#lock-bg { position: absolute; inset: 0; z-index: -1; background: var(--bg); }
+:root[data-wall="forest"] #lock-bg { background: radial-gradient(120% 70% at 20% 0%, rgba(83,125,91,0.45), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(83,125,91,0.25), transparent 60%), var(--bg); }
+:root[data-wall="dusk"] #lock-bg { background: linear-gradient(170deg, rgba(60,110,110,0.4) 0%, transparent 55%), var(--bg); }
+:root[data-wall="grid"] #lock-bg { background: linear-gradient(rgba(141,187,145,0.07) 1px, transparent 1px) 0 0 / 32px 32px, linear-gradient(90deg, rgba(141,187,145,0.07) 1px, transparent 1px) 0 0 / 32px 32px, var(--bg); }
+#lock.gone { transform: translateY(-100%); opacity: 0; pointer-events: none; }
+.lock-time { font-size: clamp(68px, 22vw, 120px); font-weight: 200; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.lock-date { color: var(--text2); margin-top: 8px; font-size: 17px; }
+.lock-note { margin-top: 18px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 14px; background: color-mix(in srgb, var(--s1) 80%, transparent); color: var(--text2); font-size: 14px; }
+.unlock { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.unlock .btn { min-width: 180px; }
+.unlock small { color: var(--muted); max-width: 300px; }
+.chev { width: 36px; height: 5px; border-radius: 3px; background: var(--text2); opacity: 0.6; }
+
+/* ---------- boot ---------- */
+#boot { position: absolute; inset: 0; z-index: 80; background: #080b09; display: grid; place-items: center; transition: opacity 0.4s; }
+#boot.gone { opacity: 0; pointer-events: none; }
+.boot-in { display: flex; flex-direction: column; align-items: center; gap: 22px; color: #f5f7f4; }
+.boot-in .wordmark { font-size: 22px; color: #f5f7f4; }
+.boot-bar { width: 160px; height: 3px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.boot-bar i { display: block; height: 100%; width: 0; background: #8dbb91; animation: boot 1s ease-out forwards; }
+@keyframes boot { to { width: 100%; } }
+
+/* ---------- dialogs, toast, dim ---------- */
+#dialogs { position: absolute; inset: 0; z-index: 60; pointer-events: none; }
+.dlg-scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: grid; place-items: center; padding: 16px; pointer-events: auto; }
+.dlg { width: min(420px, 100%); background: var(--s1); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); }
+.dlg h2 { font-size: 18px; }
+.dlg p { color: var(--text2); overflow-wrap: anywhere; }
+.dlg label { font-size: 13px; color: var(--text2); }
+.dlg-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.err { color: var(--danger); min-height: 1.2em; font-size: 13px; }
+#toast { position: absolute; z-index: 70; left: 50%; transform: translateX(-50%); bottom: calc(var(--dock-h) + 14px); max-width: min(92%, 420px); background: var(--s3); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 10px 14px; box-shadow: var(--shadow); font-size: 14px; overflow-wrap: anywhere; pointer-events: none; }
+#toast[data-kind="error"] { border-color: var(--danger); }
+#dim { position: absolute; inset: 0; z-index: 90; background: #000; opacity: 0; pointer-events: none; }
+
+/* ---------- shared controls ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--s2); color: var(--text); font-weight: 600; }
+.btn:active { background: var(--s3); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn.sm { min-height: 36px; padding: 0 12px; font-size: 14px; }
+.btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+.field { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--s2); color: var(--text); }
+.field:focus { outline: none; border-color: var(--accent-text); }
+textarea.field { resize: vertical; min-height: 120px; line-height: 1.5; }
+.mono { font-family: var(--mono); }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; padding: 3px; background: var(--s2); border: 1px solid var(--border); border-radius: 12px; }
+.seg button { flex: 1 1 auto; min-height: 38px; padding: 0 12px; border-radius: 9px; border: 0; background: none; color: var(--text2); font-weight: 600; }
+.seg button.on { background: var(--accent); color: var(--on-accent); }
+.row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); min-width: 0; }
+.row:last-child { border-bottom: 0; }
+.row .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row-title { font-weight: 500; overflow-wrap: anywhere; }
+.row-hint { color: var(--text2); font-size: 13px; overflow-wrap: anywhere; }
+.toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.sw { width: 46px; height: 28px; border-radius: 14px; background: var(--s3); border: 1px solid var(--border); position: relative; flex: none; transition: background 0.2s; }
+.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--text2); transition: transform 0.2s, background 0.2s; }
+.toggle input:checked + .sw { background: var(--accent); }
+.toggle input:checked + .sw::after { transform: translateX(18px); background: var(--on-accent); }
+.toggle input:focus-visible + .sw { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; padding: 32px 20px; color: var(--text2); flex: 1; }
+.empty svg { color: var(--accent-text); opacity: 0.8; }
+.empty strong { color: var(--text); font-size: 16px; }
+.empty p { max-width: 320px; }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--s2); color: var(--text2); }
+.pill.ok { color: var(--ok); border-color: currentColor; }
+.pill.warn { color: var(--warn); border-color: currentColor; }
+.pill.bad { color: var(--danger); border-color: currentColor; }
+.pill.sim { color: var(--warn); border-color: currentColor; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+.note-box { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--glow); color: var(--text2); font-size: 13.5px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); min-height: 32px; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding: 8px 12px 0; border-bottom: 1px solid var(--border); flex: none; }
+.tabs button { flex: none; min-height: 40px; padding: 0 14px; border: 0; background: none; color: var(--text2); border-bottom: 2px solid transparent; font-weight: 600; }
+.tabs button.on { color: var(--accent-text); border-color: var(--accent); }
+.tabwrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.tabpanel { flex: 1; min-height: 0; overflow: auto; }
+
+/* ---------- splash (2.1) ---------- */
+.boot-logo { border-radius: 22px; box-shadow: 0 0 60px rgba(83, 125, 91, 0.35); animation: logoIn 0.6s ease-out both; }
+.boot-sub { color: #7f8a81; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
+@keyframes logoIn { from { opacity: 0; transform: scale(0.86); } to { opacity: 1; transform: none; } }
+
+</style>
+<style>
+/* MANDO OS app styles */
+.tile { padding: 0; }
+.tile-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; text-align: left; width: 100%; height: 100%; min-height: 112px; padding: var(--pad); background: none; border: 0; border-radius: var(--r); color: inherit; }
+.tile-btn .ic, .tile-ic { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: var(--glow); color: var(--accent-text); border: 1px solid var(--border); flex: none; }
+.tile-btn .nm { font-weight: 600; display: block; }
+.tile-btn .ds { color: var(--text2); font-size: 12.5px; line-height: 1.35; display: block; overflow-wrap: anywhere; }
+.tile-btn[disabled] { opacity: 1; }
+#toast { bottom: calc(var(--dock-h) + 14px + env(safe-area-inset-bottom, 0px)); }
+
+.pad { padding: var(--pad); display: flex; flex-direction: column; gap: var(--gap); }
+.stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.rowx { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.rowx > .grow { flex: 1; min-width: 0; }
+.h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 600; }
+.kv { display: grid; grid-template-columns: minmax(110px, 38%) 1fr; gap: 6px 12px; font-size: 14px; }
+.kv dt { color: var(--text2); } .kv dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.card.stack { padding: var(--pad); }
+.out { font-family: var(--mono); font-size: 13.5px; padding: 10px 12px; border-radius: 12px; background: var(--s2); border: 1px solid var(--border); overflow-wrap: anywhere; white-space: pre-wrap; min-height: 44px; }
+.out.bad { border-color: var(--danger); color: var(--danger); }
+.lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+.limits { font-size: 12.5px; color: var(--muted); }
+
+/* notes + tasks */
+.split { display: flex; flex: 1; min-height: 0; }
+.list { display: flex; flex-direction: column; overflow-y: auto; min-height: 0; flex: 1; }
+.li { display: flex; align-items: center; gap: 10px; padding: 12px var(--pad); border-bottom: 1px solid var(--border); text-align: left; background: none; border-left: 0; border-right: 0; border-top: 0; color: inherit; width: 100%; min-width: 0; }
+.li:active { background: var(--s2); }
+.li .grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.li .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .s { color: var(--text2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar { display: flex; gap: 8px; padding: 10px var(--pad); align-items: center; border-bottom: 1px solid var(--border); flex: none; flex-wrap: wrap; }
+.toolbar .search { flex: 1; min-width: 140px; min-height: 42px; }
+.editor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.editor .title-in { border: 0; background: none; font-size: 20px; font-weight: 700; padding: 12px var(--pad) 4px; outline: none; width: 100%; }
+.editor textarea { flex: 1; border: 0; background: none; padding: 8px var(--pad) var(--pad); resize: none; outline: none; line-height: 1.6; min-height: 160px; width: 100%; }
+.cb { width: 28px; height: 28px; border-radius: 9px; border: 2px solid var(--muted); background: none; display: grid; place-items: center; flex: none; color: var(--on-accent); }
+.cb[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.done .t { text-decoration: line-through; color: var(--muted); }
+
+/* calculator */
+.calc { display: flex; flex-direction: column; gap: 10px; padding: var(--pad); max-width: 440px; width: 100%; margin: 0 auto; }
+.calc-disp { background: var(--s1); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; text-align: right; min-height: 104px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.calc-expr { color: var(--text2); font-size: 18px; min-height: 26px; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.calc-res { font-size: clamp(30px, 10vw, 46px); font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; line-height: 1.15; }
+.calc-res.bad { font-size: 20px; color: var(--danger); }
+.keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.key { min-height: 58px; border-radius: 16px; border: 1px solid var(--border); background: var(--s2); font-size: 22px; font-weight: 500; }
+.key:active { background: var(--s3); }
+.key.op { color: var(--accent-text); background: var(--glow); }
+.key.eq { background: var(--accent); color: var(--on-accent); }
+.key.wide { grid-column: span 2; }
+.hist { max-height: 160px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.hist button { text-align: right; background: none; border: 0; padding: 6px 4px; color: var(--text2); font-variant-numeric: tabular-nums; }
+
+/* files */
+.crumbs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 14px; color: var(--text2); padding: 8px var(--pad); }
+.crumbs button { background: none; border: 0; color: var(--accent-text); padding: 4px 6px; min-height: 32px; border-radius: 8px; }
+.fi-ic { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--glow); color: var(--accent-text); flex: none; }
+.viewer { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.viewer textarea { flex: 1; min-height: 200px; border: 0; background: var(--s1); padding: var(--pad); font-family: var(--mono); font-size: 14px; resize: none; outline: none; width: 100%; line-height: 1.5; }
+.viewer img { max-width: 100%; max-height: 70vh; margin: auto; display: block; padding: var(--pad); object-fit: contain; }
+
+/* terminal */
+.term { background: #050806; color: #d6e6d8; font-family: var(--mono); font-size: 13.5px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.term-out { flex: 1; overflow-y: auto; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
+.term-out .cmd { color: #8dbb91; }
+.term-out .err { color: #e58f84; min-height: 0; font-size: inherit; }
+.term-out .dim { color: #8a968c; }
+.term-in { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.09); }
+.term-in .ps { color: #8dbb91; white-space: nowrap; }
+.term-in input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: #f5f7f4; font-family: var(--mono); font-size: 16px; min-height: 40px; }
+.term-chips { display: flex; gap: 6px; padding: 6px 12px 10px; flex-wrap: wrap; }
+.chip { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #d6e6d8; border-radius: 999px; padding: 6px 12px; font-family: var(--mono); font-size: 13px; min-height: 34px; }
+.term-banner { color: #8dbb91; }
+
+/* browser */
+.addr { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid var(--border); align-items: center; flex: none; }
+.addr .field { min-height: 40px; flex: 1; min-width: 0; }
+.page { flex: 1; min-height: 0; overflow: auto; }
+.page iframe { width: 100%; height: 100%; border: 0; background: #fff; display: block; min-height: 300px; }
+.bm { display: flex; align-items: center; gap: 8px; }
+
+/* music */
+.player { display: flex; flex-direction: column; gap: 14px; padding: var(--pad); align-items: stretch; }
+.art { width: min(220px, 60%); aspect-ratio: 1; margin: 6px auto 0; border-radius: 28px; display: grid; place-items: center; background: radial-gradient(circle at 30% 20%, var(--green), var(--s2) 70%); border: 1px solid var(--border); color: var(--text); }
+.trk-title { text-align: center; font-size: 19px; font-weight: 700; overflow-wrap: anywhere; }
+.trk-sub { text-align: center; color: var(--text2); font-size: 13px; }
+.times { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text2); font-variant-numeric: tabular-nums; }
+.ctl { display: flex; justify-content: center; align-items: center; gap: 18px; }
+.ctl button { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--border); background: var(--s2); display: grid; place-items: center; }
+.ctl .big { width: 66px; height: 66px; background: var(--accent); color: var(--on-accent); border: 0; }
+.plist .li.cur { background: var(--glow); }
+
+/* security, monitor, store */
+.meter { height: 8px; border-radius: 4px; background: var(--s3); overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); transition: width 0.25s; }
+.chk { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.chk:last-child { border-bottom: 0; }
+.chk .grow { flex: 1; min-width: 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--gap); }
+.big-num { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.store-item { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.store-item:last-child { border-bottom: 0; }
+.store-item .grow { flex: 1; min-width: 0; }
+
+</style>
+</head>
+<body>
+<div id="os">
+  <div id="wall"></div>
+  <div id="stage">
+    <header id="statusbar" role="banner"></header>
+    <main id="home" aria-label="Home screen"></main>
+    <div id="windows"></div>
+    <nav id="dock" aria-label="Dock"></nav>
+    <div id="switcher" hidden aria-label="Open apps"></div>
+    <div id="scrim" hidden></div>
+  </div>
+  <div id="lock" aria-label="Lock screen"></div>
+  <div id="dialogs"></div>
+  <div id="toast" role="status" hidden></div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+  <div id="dim"></div>
+  <div id="boot" aria-label="Starting MANDO OS">
+    <div class="boot-in">
+      <svg class="boot-logo" viewBox="0 0 512 512" width="88" height="88" aria-hidden="true"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a1f"/><stop offset="1" stop-color="#0a0f0b"/></linearGradient></defs><rect width="512" height="512" rx="115" fill="url(#bg)"/><g fill="none" stroke-width="43" stroke-linecap="round" stroke-linejoin="round"><path d="M143 369V143M369 143V369" stroke="#8dbb91"/><path d="M143 143L256 270L369 143" stroke="#f5f7f4"/></g><circle cx="256" cy="396" r="16" fill="#8dbb91"/></svg>
+      <div class="wordmark">MANDO<b>OS</b></div><div class="boot-bar"><i></i></div><div class="boot-sub">Starting up</div>
+    </div>
+  </div>
+  <noscript><p style="position:absolute;z-index:99;inset:0;padding:24px;background:#080b09;color:#f5f7f4">MANDO OS needs JavaScript to run.</p></noscript>
+</div>
+<script>
+/* MANDO OS core: utilities, icons, storage, state, notifications, dialogs. */
+(function () {
+  'use strict';
+  const M = (window.MANDO = window.MANDO || {});
+  M.VERSION = '2.1';
+
+  /* ---------- DOM helpers ---------- */
+  function h(tag, attrs) {
+    const el = document.createElement(tag);
+    const kids = Array.prototype.slice.call(arguments, 2);
+    for (const k in attrs || {}) {
+      const v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else if (k === 'value' || k === 'checked' || k === 'disabled' || k === 'selected') el[k] = v;
+      else if (v === true) el.setAttribute(k, '');
+      else el.setAttribute(k, v);
+    }
+    (function add(list) {
+      list.forEach(function (c) {
+        if (Array.isArray(c)) add(c);
+        else if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+      });
+    })(kids);
+    return el;
+  }
+  M.h = h;
+
+  const ICONS = {
+    home: 'M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10',
+    files: 'M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+    folder: 'M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+    file: 'M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5',
+    notes: 'M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7',
+    calc: 'M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 7h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 18h.01M12 18h4',
+    music: 'M9 18V6l10-2v12M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM19 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+    settings: 'M4 7h9M17 7h3M4 17h3M11 17h9M15 7m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M9 17m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+    shield: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4',
+    flask: 'M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3M8 15h8',
+    terminal: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM7 10l3 2-3 2M12 15h5',
+    monitor: 'M3 12h4l2-6 4 12 2-6h6',
+    tasks: 'M4 6l2 2 3-3M4 14l2 2 3-3M12 7h8M12 15h8',
+    globe: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18',
+    store: 'M4 9l1-5h14l1 5M4 9v11h16V9M4 9a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 6 0 2.5 2.5 0 0 0 5 0M10 20v-5h4v5',
+    bell: 'M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4',
+    toggles: 'M3 8h18v8H3zM16 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+    layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
+    back: 'M15 5l-7 7 7 7',
+    forward: 'M9 5l7 7-7 7',
+    up: 'M5 15l7-7 7 7',
+    close: 'M6 6l12 12M18 6L6 18',
+    minus: 'M5 12h14',
+    search: 'M11 11m-6 0a6 6 0 1 0 12 0a6 6 0 1 0-12 0M20 20l-4-4',
+    plus: 'M12 5v14M5 12h14',
+    trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
+    play: 'M7 4l13 8-13 8z',
+    pause: 'M8 5v14M16 5v14',
+    next: 'M5 5l10 7-10 7zM19 5v14',
+    prev: 'M19 5l-10 7 10 7zM5 5v14',
+    copy: 'M8 8h11v12H8zM5 16V4h11',
+    edit: 'M4 20h4L19 9l-4-4L4 16z',
+    check: 'M5 12l5 5 9-10',
+    download: 'M12 4v11M7 11l5 5 5-5M5 20h14',
+    upload: 'M12 16V5M7 9l5-5 5 5M5 20h14',
+    image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M9 9h.01',
+    lock: 'M6 11h12v10H6zM8 11V8a4 4 0 0 1 8 0v3',
+    reload: 'M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5',
+    star: 'M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z',
+    wifi: 'M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01',
+    wifioff: 'M2 9a15 15 0 0 1 6-3.5M5 12.5a10 10 0 0 1 4-2.4M8.5 16a5 5 0 0 1 7 0M12 19.5h.01M3 3l18 18',
+    grid: 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z',
+    info: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.5h.01',
+    sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5',
+    save: 'M5 3h12l3 3v15H5zM8 3v6h8V3M8 21v-7h8v7'
+  };
+  M.icon = function (name, size) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('width', size || 24);
+    svg.setAttribute('height', size || 24);
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '1.7');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const p = document.createElementNS(ns, 'path');
+    p.setAttribute('d', ICONS[name] || ICONS.info);
+    if (name === 'play') p.setAttribute('fill', 'currentColor');
+    svg.appendChild(p);
+    return svg;
+  };
+
+  /* ---------- small utilities ---------- */
+  M.uid = function () {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  };
+  M.clamp = function (n, a, b) { return Math.min(b, Math.max(a, n)); };
+  M.fmtBytes = function (n) {
+    if (!isFinite(n)) return 'Not available';
+    if (n < 1024) return n + ' B';
+    if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+    return (n / 1073741824).toFixed(2) + ' GB';
+  };
+  M.debounce = function (fn, ms) {
+    let t;
+    const d = function () {
+      const a = arguments;
+      clearTimeout(t);
+      t = setTimeout(function () { fn.apply(null, a); }, ms);
+    };
+    d.flush = function () { clearTimeout(t); };
+    return d;
+  };
+  M.copyText = function (text, input) {
+    function fallback() {
+      try {
+        const ta = input || h('textarea', { 'aria-hidden': 'true', style: 'position:fixed;opacity:0;top:0' });
+        if (!input) { ta.value = text; document.body.appendChild(ta); }
+        ta.select();
+        const ok = document.execCommand('copy');
+        if (!input) ta.remove();
+        return ok;
+      } catch (e) { return false; }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { return true; }, function () { return fallback(); });
+    }
+    return Promise.resolve(fallback());
+  };
+  M.download = function (name, text, type) {
+    const url = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' }));
+    const a = h('a', { href: url, download: name });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  };
+
+  /* ---------- events ---------- */
+  const listeners = {};
+  M.on = function (evt, fn) { (listeners[evt] = listeners[evt] || []).push(fn); };
+  M.emit = function (evt, data) { (listeners[evt] || []).forEach(function (fn) { try { fn(data); } catch (e) { console.error(e); } }); };
+
+  /* ---------- storage ---------- */
+  const PREFIX = 'mando.';
+  const mem = {};
+  let storageOk = true;
+  try { localStorage.setItem(PREFIX + '_t', '1'); localStorage.removeItem(PREFIX + '_t'); } catch (e) { storageOk = false; }
+  M.storage = {
+    available: function () { return storageOk; },
+    get: function (key, fallback) {
+      if (!storageOk) return key in mem ? mem[key] : fallback;
+      try {
+        const raw = localStorage.getItem(PREFIX + key);
+        return raw == null ? fallback : JSON.parse(raw);
+      } catch (e) { return fallback; }
+    },
+    set: function (key, val) {
+      mem[key] = val;
+      if (!storageOk) return false;
+      try { localStorage.setItem(PREFIX + key, JSON.stringify(val)); return true; }
+      catch (e) { M.notify('Storage error', 'Could not save "' + key + '". Storage may be full.', 'error'); return false; }
+    },
+    keys: function () {
+      const out = [];
+      if (!storageOk) return Object.keys(mem);
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf(PREFIX) === 0) out.push(k.slice(PREFIX.length)); } } catch (e) {}
+      return out;
+    },
+    bytes: function () {
+      let n = 0;
+      if (!storageOk) return n;
+      this.keys().forEach(function (k) { try { n += (localStorage.getItem(PREFIX + k) || '').length * 2; } catch (e) {} });
+      return n;
+    },
+    clearAll: function () {
+      this.keys().forEach(function (k) { try { localStorage.removeItem(PREFIX + k); } catch (e) {} });
+      Object.keys(mem).forEach(function (k) { delete mem[k]; });
+    }
+  };
+
+  /* ---------- state + validation ---------- */
+  const ENUM = {
+    theme: ['dark', 'light', 'system'],
+    accent: ['forest', 'mint', 'moss', 'pine'],
+    wallpaper: ['forest', 'dusk', 'grid', 'plain'],
+    density: ['comfortable', 'compact'],
+    clock: ['auto', '12', '24'],
+    dateFormat: ['locale', 'long', 'iso'],
+    greeting: ['time', 'simple', 'none']
+  };
+  const DEFAULT_SETTINGS = {
+    name: '', greeting: 'time', theme: 'dark', accent: 'forest', wallpaper: 'forest',
+    density: 'comfortable', animations: true, bootAnim: true, clock: 'auto', dateFormat: 'locale',
+    brightness: 100, sounds: true, volume: 40, lockOnStart: true
+  };
+  M.ENUM = ENUM;
+  M.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
+
+  function str(v, max) { return typeof v === 'string' ? v.slice(0, max) : ''; }
+  M.sanitize = {
+    settings: function (o) {
+      const out = Object.assign({}, DEFAULT_SETTINGS);
+      if (!o || typeof o !== 'object') return out;
+      Object.keys(ENUM).forEach(function (k) { if (ENUM[k].indexOf(o[k]) >= 0) out[k] = o[k]; });
+      ['animations', 'bootAnim', 'sounds', 'lockOnStart'].forEach(function (k) { if (typeof o[k] === 'boolean') out[k] = o[k]; });
+      if (typeof o.name === 'string') out.name = o.name.trim().slice(0, 40);
+      if (typeof o.brightness === 'number' && isFinite(o.brightness)) out.brightness = M.clamp(Math.round(o.brightness), 40, 100);
+      if (typeof o.volume === 'number' && isFinite(o.volume)) out.volume = M.clamp(Math.round(o.volume), 0, 100);
+      return out;
+    },
+    notes: function (a) {
+      if (!Array.isArray(a)) return [];
+      return a.filter(function (n) { return n && typeof n === 'object'; }).slice(0, 2000).map(function (n) {
+        return { id: str(n.id, 64) || M.uid(), title: str(n.title, 200), body: str(n.body, 100000), updated: isFinite(n.updated) ? +n.updated : Date.now() };
+      });
+    },
+    tasks: function (a) {
+      if (!Array.isArray(a)) return [];
+      return a.filter(function (t) { return t && typeof t === 'object' && typeof t.text === 'string'; }).slice(0, 5000).map(function (t) {
+        return { id: str(t.id, 64) || M.uid(), text: str(t.text, 500), done: t.done === true, created: isFinite(t.created) ? +t.created : Date.now() };
+      });
+    },
+    notifications: function (a) {
+      if (!Array.isArray(a)) return [];
+      return a.filter(function (n) { return n && typeof n === 'object'; }).slice(0, 60).map(function (n) {
+        return { id: str(n.id, 64) || M.uid(), title: str(n.title, 120), body: str(n.body, 300), time: isFinite(n.time) ? +n.time : Date.now(), read: n.read === true, kind: ['info', 'error', 'success'].indexOf(n.kind) >= 0 ? n.kind : 'info' };
+      });
+    },
+    checklist: function (o) {
+      const out = {};
+      if (o && typeof o === 'object') Object.keys(o).slice(0, 50).forEach(function (k) { if (o[k] === true) out[str(k, 40)] = true; });
+      return out;
+    }
+  };
+
+  /* installed apps list is validated against the registry in shell.js */
+  M.state = {
+    settings: M.sanitize.settings(M.storage.get('settings', null)),
+    notes: M.sanitize.notes(M.storage.get('notes', [])),
+    tasks: M.sanitize.tasks(M.storage.get('tasks', [])),
+    notifs: M.sanitize.notifications(M.storage.get('notifications', [])),
+    checklist: M.sanitize.checklist(M.storage.get('checklist', {})),
+    prefs: (function () {
+      const p = M.storage.get('preferences', {});
+      return p && typeof p === 'object' ? p : {};
+    })()
+  };
+  M.save = {
+    settings: function () { M.storage.set('settings', M.state.settings); M.emit('settings'); },
+    notes: function () { M.storage.set('notes', M.state.notes); M.emit('notes'); },
+    tasks: function () { M.storage.set('tasks', M.state.tasks); M.emit('tasks'); },
+    notifs: function () { M.storage.set('notifications', M.state.notifs.slice(0, 60)); M.emit('notifs'); },
+    checklist: function () { M.storage.set('checklist', M.state.checklist); M.emit('checklist'); },
+    prefs: function () { M.storage.set('preferences', M.state.prefs); M.emit('prefs'); }
+  };
+  M.flushers = new Set();
+  window.addEventListener('pagehide', function () { M.flushers.forEach(function (f) { try { f(); } catch (e) {} }); });
+
+  /* ---------- formatting ---------- */
+  M.fmtTime = function (d, seconds) {
+    const c = M.state.settings.clock;
+    const o = { hour: '2-digit', minute: '2-digit' };
+    if (seconds) o.second = '2-digit';
+    if (c === '12') o.hour12 = true;
+    if (c === '24') { o.hour12 = false; o.hourCycle = 'h23'; }
+    return d.toLocaleTimeString(undefined, o);
+  };
+  M.fmtDate = function (d) {
+    const f = M.state.settings.dateFormat;
+    if (f === 'iso') return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (f === 'long') return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  };
+  M.fmtStamp = function (ts) {
+    return new Date(ts).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  };
+  M.greeting = function () {
+    const s = M.state.settings;
+    if (s.greeting === 'none') return '';
+    const n = s.name ? ', ' + s.name : '';
+    if (s.greeting === 'simple') return 'Hello' + n;
+    const hr = new Date().getHours();
+    return (hr < 5 ? 'Good night' : hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + n;
+  };
+
+  /* ---------- apply settings ---------- */
+  M.applySettings = function () {
+    const s = M.state.settings, r = document.documentElement;
+    if (s.theme === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', s.theme);
+    r.setAttribute('data-accent', s.accent);
+    r.setAttribute('data-wall', s.wallpaper);
+    r.setAttribute('data-density', s.density);
+    r.setAttribute('data-motion', s.animations ? 'on' : 'off');
+    const dim = document.getElementById('dim');
+    if (dim) dim.style.opacity = String(((100 - s.brightness) / 100) * 0.8);
+  };
+  M.set = function (key, value, label) {
+    M.state.settings[key] = value;
+    M.save.settings();
+    M.applySettings();
+    if (label) M.notify('Setting changed', label, 'info');
+  };
+
+  /* ---------- sound (WebAudio, only after user interaction) ---------- */
+  let actx = null;
+  M.beep = function (freq, ms) {
+    const s = M.state.settings;
+    if (!s.sounds || s.volume <= 0) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === 'suspended') actx.resume();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.frequency.value = freq || 660;
+      g.gain.value = (s.volume / 100) * 0.08;
+      o.connect(g); g.connect(actx.destination);
+      o.start();
+      g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + (ms || 90) / 1000);
+      o.stop(actx.currentTime + (ms || 90) / 1000 + 0.02);
+    } catch (e) { /* audio unavailable: silently skip, sound is optional */ }
+  };
+
+  /* ---------- notifications + toast ---------- */
+  let toastTimer;
+  M.toast = function (msg, kind) {
+    const t = document.getElementById('toast');
+    if (!t) return;
+    t.textContent = msg;
+    t.setAttribute('data-kind', kind || 'info');
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, 2600);
+    const live = document.getElementById('live');
+    if (live) live.textContent = msg;
+  };
+  M.notify = function (title, body, kind) {
+    M.state.notifs.unshift({ id: M.uid(), title: title, body: body || '', time: Date.now(), read: false, kind: kind || 'info' });
+    if (M.state.notifs.length > 60) M.state.notifs.length = 60;
+    M.save.notifs();
+    M.toast(title + (body ? ': ' + body : ''), kind);
+    if (kind === 'error') M.beep(220, 160); else M.beep(720, 70);
+  };
+
+  /* ---------- dialogs (window.confirm/prompt are unavailable in some hosts) ---------- */
+  function dialog(build) {
+    return new Promise(function (resolve) {
+      const root = document.getElementById('dialogs');
+      const scrim = h('div', { class: 'dlg-scrim' });
+      const box = h('div', { class: 'dlg', role: 'dialog', 'aria-modal': 'true' });
+      scrim.appendChild(box);
+      const prevFocus = document.activeElement;
+      function close(v) {
+        scrim.remove();
+        document.removeEventListener('keydown', onKey, true);
+        if (prevFocus && prevFocus.focus) try { prevFocus.focus(); } catch (e) {}
+        resolve(v);
+      }
+      function onKey(e) { if (e.key === 'Escape') { e.stopPropagation(); close(null); } }
+      document.addEventListener('keydown', onKey, true);
+      build(box, close);
+      root.appendChild(scrim);
+      const f = box.querySelector('[data-autofocus]');
+      if (f) f.focus();
+    });
+  }
+  M.confirm = function (o) {
+    return dialog(function (box, close) {
+      box.setAttribute('aria-label', o.title);
+      box.append(
+        h('h2', { text: o.title }),
+        h('p', { text: o.message }),
+        h('div', { class: 'dlg-actions' },
+          h('button', { class: 'btn', 'data-autofocus': true, onclick: function () { close(false); }, text: 'Cancel' }),
+          h('button', { class: 'btn ' + (o.danger ? 'danger' : 'primary'), onclick: function () { close(true); }, text: o.confirmLabel || 'Confirm' })
+        )
+      );
+    }).then(function (v) { return v === true; });
+  };
+  M.askText = function (o) {
+    return dialog(function (box, close) {
+      box.setAttribute('aria-label', o.title);
+      const input = h('input', { class: 'field', type: 'text', id: 'dlg-input', value: o.value || '', maxlength: o.max || 80, 'data-autofocus': true, autocomplete: 'off' });
+      const err = h('p', { class: 'err', role: 'alert' });
+      function submit() {
+        const v = input.value.trim();
+        if (!v) { err.textContent = 'Enter a name first.'; return; }
+        if (o.validate) { const m = o.validate(v); if (m) { err.textContent = m; return; } }
+        close(v);
+      }
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+      box.append(
+        h('h2', { text: o.title }),
+        h('label', { for: 'dlg-input', text: o.label || 'Name' }), input, err,
+        h('div', { class: 'dlg-actions' },
+          h('button', { class: 'btn', onclick: function () { close(null); }, text: 'Cancel' }),
+          h('button', { class: 'btn primary', onclick: submit, text: o.confirmLabel || 'OK' })
+        )
+      );
+    });
+  };
+
+  /* ---------- UI building blocks shared by apps ---------- */
+  M.segmented = function (options, value, onChange, label) {
+    const wrap = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': label || '' });
+    function paint(v) {
+      Array.prototype.forEach.call(wrap.children, function (b) {
+        const on = b.dataset.v === v;
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+        b.classList.toggle('on', on);
+      });
+    }
+    options.forEach(function (o) {
+      wrap.appendChild(h('button', { type: 'button', role: 'radio', 'data-v': o[0], text: o[1], onclick: function () { paint(o[0]); onChange(o[0]); } }));
+    });
+    paint(value);
+    return wrap;
+  };
+  M.toggle = function (id, label, checked, onChange, hint) {
+    const input = h('input', { type: 'checkbox', id: id, role: 'switch', checked: !!checked, onchange: function () { onChange(input.checked); } });
+    return h('label', { class: 'row toggle', for: id },
+      h('span', { class: 'grow' }, h('span', { class: 'row-title', text: label }), hint ? h('span', { class: 'row-hint', text: hint }) : null),
+      input, h('span', { class: 'sw', 'aria-hidden': 'true' }));
+  };
+  M.empty = function (iconName, title, text) {
+    return h('div', { class: 'empty' }, M.icon(iconName, 36), h('strong', { text: title }), h('p', { text: text }));
+  };
+  M.tabs = function (items, initial) {
+    const bar = h('div', { class: 'tabs', role: 'tablist' });
+    const panel = h('div', { class: 'tabpanel', role: 'tabpanel' });
+    const cache = {};
+    function show(id) {
+      Array.prototype.forEach.call(bar.children, function (b) {
+        const on = b.dataset.id === id;
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.classList.toggle('on', on);
+      });
+      panel.textContent = '';
+      const it = items.filter(function (i) { return i.id === id; })[0];
+      if (!cache[id]) cache[id] = it.build();
+      panel.appendChild(cache[id]);
+    }
+    items.forEach(function (it) {
+      bar.appendChild(h('button', { role: 'tab', 'data-id': it.id, text: it.label, onclick: function () { show(it.id); } }));
+    });
+    show(initial || items[0].id);
+    return h('div', { class: 'tabwrap' }, bar, panel);
+  };
+})();
+
+</script>
+<script>
+/* MANDO OS shell: app registry, window manager, status bar, home, dock, panels, switcher, lock. */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h, $ = function (id) { return document.getElementById(id); };
+  const desktopMQ = window.matchMedia('(min-width: 900px) and (hover: hover)');
+  M.isDesktop = function () { return desktopMQ.matches; };
+
+  /* ---------- app registry ---------- */
+  M.apps = [];
+  M.registerApp = function (app) { M.apps.push(app); };
+  M.getApp = function (id) { return M.apps.filter(function (a) { return a.id === id; })[0]; };
+
+  M.installed = function () {
+    const known = M.apps.map(function (a) { return a.id; });
+    const ORDER = ['files', 'notes', 'calc', 'music', 'browser', 'terminal', 'tasks', 'security', 'cyber', 'sysmon', 'settings', 'store'];
+    let list = Array.isArray(M.state.prefs.installed) ? M.state.prefs.installed.filter(function (id, i, arr) { return known.indexOf(id) >= 0 && arr.indexOf(id) === i; }) : ORDER.filter(function (id) { return known.indexOf(id) >= 0; });
+    M.apps.forEach(function (a) { if (a.core && list.indexOf(a.id) < 0) list.push(a.id); });
+    return list;
+  };
+  M.setInstalled = function (list) {
+    M.state.prefs.installed = list;
+    M.save.prefs();
+    M.emit('installed');
+  };
+  M.isInstalled = function (id) { return M.installed().indexOf(id) >= 0; };
+
+  /* ---------- window manager ---------- */
+  const wins = new Map();
+  let front = null, zTop = 5, cascade = 0;
+  M.wm = {
+    wins: wins,
+    front: function () { return front; },
+    isOpen: function (id) { return wins.has(id); },
+    isFront: function (id) { const w = wins.get(id); return !!w && front === id && !w.el.classList.contains('min') && !M.isLocked(); },
+    open: function (id) {
+      const app = M.getApp(id);
+      if (!app) { M.notify('App not found', id, 'error'); return; }
+      if (!M.isInstalled(id)) { M.notify('Not installed', app.name + ' is not installed. Install it from the App Store.', 'error'); return; }
+      closeSwitcher();
+      if (wins.has(id)) { M.wm.focus(id); return; }
+      const body = h('div', { class: 'win-body' });
+      const titleEl = h('span', { text: app.name });
+      const el = h('section', { class: 'win', 'aria-label': app.name, 'data-app': id },
+        h('header', { class: 'win-bar' },
+          h('button', { class: 'wb back-btn', 'aria-label': 'Back to home', onclick: function () { M.wm.home(); } }, M.icon('back', 22)),
+          h('div', { class: 'win-title' }, M.icon(app.icon, 20), titleEl),
+          h('button', { class: 'wb min-btn', 'aria-label': 'Minimize ' + app.name, onclick: function () { M.wm.minimize(id); } }, M.icon('minus', 20)),
+          h('button', { class: 'wb', 'aria-label': 'Close ' + app.name, onclick: function () { M.wm.close(id); } }, M.icon('close', 20))
+        ), body);
+      const rec = { id: id, app: app, el: el, body: body, inst: null };
+      wins.set(id, rec);
+      $('windows').appendChild(el);
+      if (desktopMQ.matches) {
+        el.style.setProperty('--x', (60 + (cascade % 8) * 30) + 'px');
+        el.style.setProperty('--y', (12 + (cascade % 8) * 30) + 'px');
+        cascade++;
+        enableDrag(el);
+      }
+      el.addEventListener('pointerdown', function () { if (front !== id) M.wm.focus(id); });
+      const ctx = {
+        id: id, win: el, body: body,
+        setTitle: function (t) { titleEl.textContent = t; },
+        open: M.wm.open, close: function () { M.wm.close(id); },
+        isFront: function () { return M.wm.isFront(id); }
+      };
+      try { rec.inst = app.mount(body, ctx) || {}; }
+      catch (e) {
+        console.error(e);
+        body.textContent = '';
+        body.appendChild(M.empty('info', app.name + ' could not start', 'Something went wrong while opening this app. Close it and try again.'));
+        M.notify('App error', app.name + ' failed to start.', 'error');
+      }
+      M.wm.focus(id);
+      M.beep(520, 50);
+    },
+    focus: function (id) {
+      const rec = wins.get(id);
+      if (!rec) return;
+      rec.el.classList.remove('min');
+      front = id;
+      rec.el.style.zIndex = ++zTop;
+      wins.forEach(function (w, k) { w.el.classList.toggle('front', k === id); });
+      M.emit('wm');
+    },
+    minimize: function (id) {
+      const rec = wins.get(id);
+      if (!rec) return;
+      rec.el.classList.add('min');
+      rec.el.classList.remove('front');
+      if (front === id) {
+        front = null;
+        if (desktopMQ.matches) {
+          let next = null;
+          wins.forEach(function (w, k) { if (!w.el.classList.contains('min')) next = k; });
+          if (next) { M.wm.focus(next); return; }
+        }
+      }
+      M.emit('wm');
+    },
+    close: function (id) {
+      const rec = wins.get(id);
+      if (!rec) return;
+      try { if (rec.inst && rec.inst.unmount) rec.inst.unmount(); } catch (e) { console.error(e); }
+      rec.el.remove();
+      wins.delete(id);
+      if (front === id) front = null;
+      M.emit('wm');
+    },
+    home: function () {
+      wins.forEach(function (w) { w.el.classList.add('min'); w.el.classList.remove('front'); });
+      front = null;
+      closeSwitcher();
+      M.emit('wm');
+    }
+  };
+
+  function enableDrag(el) {
+    const bar = el.querySelector('.win-bar');
+    bar.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button') || e.button !== 0) return;
+      const r = el.getBoundingClientRect(), host = $('windows').getBoundingClientRect();
+      const dx = e.clientX - r.left, dy = e.clientY - r.top;
+      bar.setPointerCapture(e.pointerId);
+      function move(ev) {
+        const x = M.clamp(ev.clientX - dx - host.left, 80 - r.width, host.width - 80);
+        const y = M.clamp(ev.clientY - dy - host.top, 0, host.height - 48);
+        el.style.setProperty('--x', x + 'px');
+        el.style.setProperty('--y', y + 'px');
+      }
+      function up() { bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', up); bar.removeEventListener('pointercancel', up); }
+      bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', up); bar.addEventListener('pointercancel', up);
+    });
+  }
+
+  /* ---------- battery (real when the browser exposes it, otherwise a labelled simulation) ---------- */
+  M.battery = { real: false, level: 1, charging: false };
+  function simLevel() {
+    if (!M.state.prefs.simStart) { M.state.prefs.simStart = Date.now(); M.save.prefs(); }
+    const mins = (Date.now() - M.state.prefs.simStart) / 60000;
+    return (100 - Math.floor(mins / 3) % 80) / 100;
+  }
+  function initBattery() {
+    M.battery.level = simLevel();
+    if (navigator.getBattery) {
+      navigator.getBattery().then(function (b) {
+        function upd() { M.battery = { real: true, level: b.level, charging: b.charging }; M.emit('battery'); }
+        upd(); b.addEventListener('levelchange', upd); b.addEventListener('chargingchange', upd);
+      }).catch(function () {});
+    }
+    setInterval(function () { if (!M.battery.real) { M.battery.level = simLevel(); M.emit('battery'); } }, 60000);
+  }
+
+  /* ---------- status bar ---------- */
+  let statusEls = {};
+  function buildStatusBar() {
+    const sb = $('statusbar');
+    statusEls.time = h('span', { class: 'time' });
+    statusEls.net = h('span', { class: 'sb-ind' });
+    statusEls.batt = h('span', { class: 'sb-ind' });
+    statusEls.badge = h('span', { class: 'badge', hidden: true });
+    sb.append(
+      statusEls.time, h('span', { class: 'spacer' }), statusEls.net, statusEls.batt,
+      h('button', { class: 'sb-btn', id: 'btn-notifs', 'aria-label': 'Notifications', onclick: function () { openPanel('notifs'); } }, M.icon('bell', 22), statusEls.badge),
+      h('button', { class: 'sb-btn', id: 'btn-quick', 'aria-label': 'Quick settings', onclick: function () { openPanel('quick'); } }, M.icon('toggles', 22))
+    );
+    function net() {
+      statusEls.net.textContent = '';
+      const on = navigator.onLine;
+      statusEls.net.append(M.icon(on ? 'wifi' : 'wifioff', 16), h('span', { text: on ? 'Online' : 'Offline' }));
+      statusEls.net.title = 'Connectivity as reported by your browser';
+    }
+    function batt() {
+      const b = M.battery, pct = Math.round(b.level * 100);
+      statusEls.batt.textContent = '';
+      const icon = h('span', { class: 'batt' }, h('i', { style: '--lvl:' + pct + '%' }), h('span', { text: pct + '%' }));
+      statusEls.batt.append(icon);
+      if (!b.real) statusEls.batt.append(h('span', { class: 'pill sim', text: 'sim' }));
+      statusEls.batt.title = b.real ? 'Battery level reported by your browser' + (b.charging ? ' (charging)' : '') : 'Simulated: this browser does not expose battery data';
+    }
+    function badge() {
+      const n = M.state.notifs.filter(function (x) { return !x.read; }).length;
+      statusEls.badge.hidden = n === 0;
+      statusEls.badge.textContent = n > 99 ? '99+' : String(n);
+      $('btn-notifs').setAttribute('aria-label', 'Notifications' + (n ? ', ' + n + ' unread' : ''));
+    }
+    net(); batt(); badge();
+    window.addEventListener('online', net); window.addEventListener('offline', net);
+    M.on('battery', batt); M.on('notifs', badge);
+  }
+
+  /* ---------- clock ---------- */
+  let clockEls = {}, tickTimer;
+  function tick() {
+    const d = new Date(), t = M.fmtTime(d), dt = M.fmtDate(d);
+    statusEls.time.textContent = t;
+    clockEls.lockTime.textContent = t; clockEls.lockDate.textContent = dt;
+    clockEls.homeTime.textContent = t; clockEls.homeDate.textContent = dt;
+    const g = M.greeting();
+    clockEls.greet.textContent = g; clockEls.greet.hidden = !g;
+    renderLockNote();
+    clearTimeout(tickTimer);
+    tickTimer = setTimeout(tick, 60000 - (Date.now() % 60000) + 30);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && statusEls.time) tick(); });
+
+  /* ---------- home ---------- */
+  let homeEls = {}, editing = false, query = '';
+  function buildHome() {
+    const home = $('home');
+    clockEls.homeTime = h('div', { class: 'clock-big' });
+    clockEls.homeDate = h('div', { class: 'clock-date' });
+    clockEls.greet = h('div', { class: 'clock-greet' });
+    homeEls.welcome = h('div');
+    homeEls.pwa = h('div', { id: 'home-pwa' });
+    homeEls.overview = h('div', { class: 'card overview', 'aria-label': 'System overview' });
+    homeEls.grid = h('div', { class: 'grid', id: 'app-grid' });
+    homeEls.editBtn = h('button', { class: 'btn sm', onclick: function () { editing = !editing; renderGrid(); } });
+    const search = h('input', { type: 'search', id: 'app-search', placeholder: 'Search apps', 'aria-label': 'Search apps', autocomplete: 'off', oninput: function (e) { query = e.target.value.trim().toLowerCase(); renderGrid(); } });
+    home.appendChild(h('div', { class: 'home-inner' },
+      h('div', { class: 'wordmark', 'aria-label': 'MANDO OS' }, 'MANDO', h('b', { text: 'OS' })),
+      h('div', { class: 'clock-block' }, clockEls.homeTime, clockEls.homeDate, clockEls.greet),
+      homeEls.pwa, homeEls.welcome, homeEls.overview,
+      h('div', { class: 'section-title' }, h('span', { text: 'Apps' }), homeEls.editBtn),
+      h('label', { class: 'search', for: 'app-search' }, M.icon('search', 18), search),
+      homeEls.grid
+    ));
+    renderWelcome(); renderOverview(); renderGrid();
+    M.on('notes', renderOverview); M.on('tasks', renderOverview); M.on('settings', renderOverview); M.on('installed', function () { renderOverview(); renderGrid(); });
+    M.on('battery', renderOverview);
+  }
+  function renderWelcome() {
+    homeEls.welcome.textContent = '';
+    if (M.state.prefs.onboarded) return;
+    const name = h('input', { class: 'field', id: 'welcome-name', type: 'text', maxlength: 40, placeholder: 'Your name (optional)', 'aria-label': 'Your name', value: M.state.settings.name, autocomplete: 'off' });
+    homeEls.welcome.appendChild(h('div', { class: 'card', style: 'display:flex;flex-direction:column;gap:10px' },
+      h('strong', { text: 'Welcome to MANDO OS' }),
+      h('p', { class: 'row-hint', text: 'Tap an app to open it. The dock switches between open apps. The bell shows notifications and the switch icon opens quick settings. Everything you create stays in this browser.' }),
+      name,
+      h('button', { class: 'btn primary', onclick: function () {
+        M.state.settings.name = name.value.trim().slice(0, 40); M.save.settings();
+        M.state.prefs.onboarded = true; M.save.prefs(); renderWelcome(); tick();
+      }, text: 'Get started' })));
+  }
+  function renderOverview() {
+    const o = homeEls.overview, st = M.state;
+    const open = st.tasks.filter(function (t) { return !t.done; }).length;
+    const stats = [
+      [st.notes.length, 'Notes'], [open + '/' + st.tasks.length, 'Tasks open'], [M.installed().length + '/' + M.apps.length, 'Apps installed'],
+      [st.settings.theme === 'system' ? 'System' : st.settings.theme[0].toUpperCase() + st.settings.theme.slice(1), 'Theme']
+    ];
+    if (M.battery.real) stats.push([Math.round(M.battery.level * 100) + '%', 'Battery']);
+    o.textContent = '';
+    stats.forEach(function (s) { o.appendChild(h('div', { class: 'stat' }, h('b', { text: String(s[0]) }), h('span', { text: s[1] }))); });
+  }
+  function renderGrid() {
+    const g = homeEls.grid, ids = M.installed();
+    homeEls.editBtn.textContent = editing ? 'Done' : 'Edit home';
+    g.textContent = '';
+    const shown = ids.filter(function (id) {
+      const a = M.getApp(id);
+      return !query || (a.name + ' ' + a.desc).toLowerCase().indexOf(query) >= 0;
+    });
+    if (!shown.length) { g.appendChild(h('div', { style: 'grid-column:1/-1' }, M.empty('search', 'No apps match', 'Try a different search, or install more apps from the App Store.'))); return; }
+    shown.forEach(function (id) {
+      const a = M.getApp(id), idx = ids.indexOf(id);
+      const tile = h('div', { class: 'tile' },
+        h('button', { class: 'tile-btn', 'aria-label': 'Open ' + a.name + '. ' + a.desc, disabled: editing, onclick: function () { M.wm.open(id); } },
+          h('span', { class: 'ic' }, M.icon(a.icon, 22)), h('span', { class: 'nm', text: a.name }), h('span', { class: 'ds', text: a.desc })));
+      if (editing && !query) {
+        tile.appendChild(h('div', { class: 'tile-tools' },
+          h('button', { class: 'mini', 'aria-label': 'Move ' + a.name + ' earlier', disabled: idx === 0, onclick: function () { move(idx, -1); } }, M.icon('back', 16)),
+          h('button', { class: 'mini', 'aria-label': 'Move ' + a.name + ' later', disabled: idx === ids.length - 1, onclick: function () { move(idx, 1); } }, M.icon('forward', 16)),
+          a.core ? null : h('button', { class: 'mini', 'aria-label': 'Remove ' + a.name + ' from home', onclick: function () { uninstall(id); } }, M.icon('close', 16))));
+      }
+      g.appendChild(tile);
+    });
+    if (editing && query) g.appendChild(h('p', { class: 'row-hint', style: 'grid-column:1/-1', text: 'Clear the search to reorder apps.' }));
+  }
+  function move(i, d) {
+    const ids = M.installed(), j = i + d;
+    if (j < 0 || j >= ids.length) return;
+    const t = ids[i]; ids[i] = ids[j]; ids[j] = t;
+    M.setInstalled(ids);
+  }
+  function uninstall(id) {
+    const a = M.getApp(id);
+    M.setInstalled(M.installed().filter(function (x) { return x !== id; }));
+    if (M.wm.isOpen(id)) M.wm.close(id);
+    M.notify('App removed', a.name + ' was removed from home. Reinstall it from the App Store.', 'info');
+  }
+
+  /* ---------- dock ---------- */
+  const DOCK = ['notes', 'tasks', 'calc', 'browser', 'settings'];
+  function buildDock() {
+    const dock = $('dock');
+    function render() {
+      dock.textContent = '';
+      dock.appendChild(h('button', { class: 'dk' + (M.wm.front() === null ? ' cur' : ''), 'aria-label': 'Home', onclick: function () { M.wm.home(); } }, M.icon('home', 24)));
+      dock.appendChild(h('span', { class: 'dk-sep' }));
+      DOCK.filter(M.isInstalled).forEach(function (id) {
+        const a = M.getApp(id);
+        dock.appendChild(h('button', { class: 'dk' + (M.wm.isOpen(id) ? ' run' : '') + (M.wm.front() === id ? ' cur' : ''), 'aria-label': a.name, title: a.name, onclick: function () { M.wm.open(id); } }, M.icon(a.icon, 24)));
+      });
+      dock.appendChild(h('span', { class: 'dk-sep' }));
+      dock.appendChild(h('button', { class: 'dk', 'aria-label': 'Open apps (' + M.wm.wins.size + ')', title: 'Switch apps', onclick: toggleSwitcher }, M.icon('layers', 24)));
+    }
+    render();
+    M.on('wm', render); M.on('installed', render);
+  }
+
+  /* ---------- switcher ---------- */
+  function closeSwitcher() { const s = $('switcher'); if (s) s.hidden = true; }
+  function toggleSwitcher() {
+    const s = $('switcher');
+    if (!s.hidden) { s.hidden = true; return; }
+    renderSwitcher(); s.hidden = false;
+  }
+  function renderSwitcher() {
+    const s = $('switcher');
+    s.textContent = '';
+    if (!M.wm.wins.size) { s.appendChild(M.empty('layers', 'No apps are open', 'Open an app from the home screen. Open apps appear here so you can switch between them.')); return; }
+    const grid = h('div', { class: 'sw-grid' });
+    M.wm.wins.forEach(function (w, id) {
+      grid.appendChild(h('div', { class: 'sw-card' + (M.wm.front() === id ? ' cur' : '') },
+        h('button', { class: 'tile-btn', style: 'padding:0;gap:10px', 'aria-label': 'Switch to ' + w.app.name, onclick: function () { s.hidden = true; M.wm.focus(id); } },
+          h('span', { class: 'ic tile-ic' }, M.icon(w.app.icon, 22)), h('span', { class: 'nm', text: w.app.name }),
+          h('span', { class: 'ds', text: M.wm.front() === id ? 'Active' : 'Open' })),
+        h('button', { class: 'mini x', 'aria-label': 'Close ' + w.app.name, onclick: function () { M.wm.close(id); renderSwitcher(); } }, M.icon('close', 16))));
+    });
+    s.appendChild(grid);
+  }
+  M.on('wm', function () { const s = $('switcher'); if (s && !s.hidden) renderSwitcher(); });
+
+  /* ---------- panels ---------- */
+  let panelOpen = null;
+  function closePanel() {
+    if (panelOpen) { panelOpen.remove(); panelOpen = null; }
+    const sc = $('scrim'); sc.hidden = true;
+    M.state.notifs.forEach(function (n) { n.read = true; }); M.save.notifs();
+  }
+  function openPanel(kind) {
+    if (panelOpen) { const same = panelOpen.dataset.kind === kind; closePanel(); if (same) return; }
+    $('scrim').hidden = false;
+    const p = kind === 'notifs' ? notifPanel() : quickPanel();
+    p.dataset.kind = kind;
+    $('stage').appendChild(p);
+    panelOpen = p;
+    const f = p.querySelector('button'); if (f) f.focus();
+  }
+  M.openPanel = openPanel;
+  function notifPanel() {
+    const list = h('div');
+    function paint() {
+      list.textContent = '';
+      if (!M.state.notifs.length) { list.appendChild(M.empty('bell', 'No notifications yet', 'Saved notes, changed settings and completed tasks show up here.')); return; }
+      M.state.notifs.forEach(function (n) {
+        list.appendChild(h('div', { class: 'notif ' + n.kind },
+          h('b', { text: n.title }), n.body ? h('span', { text: n.body }) : null, h('small', { text: M.fmtStamp(n.time) })));
+      });
+    }
+    paint();
+    return h('div', { class: 'panel', role: 'dialog', 'aria-label': 'Notifications' },
+      h('div', { class: 'panel-head' }, h('h2', { text: 'Notifications' }),
+        h('span', { style: 'display:flex;gap:6px' },
+          h('button', { class: 'btn sm', onclick: function () { M.state.notifs = []; M.save.notifs(); paint(); }, text: 'Clear all' }),
+          h('button', { class: 'wb', 'aria-label': 'Close notifications', onclick: closePanel }, M.icon('close', 20)))),
+      list);
+  }
+  function quickPanel() {
+    const s = M.state.settings;
+    const themeBtn = h('button', { class: 'qs', 'aria-pressed': s.theme !== 'light' ? 'true' : 'false' });
+    function paintTheme() { themeBtn.textContent = ''; themeBtn.append(M.icon('sun', 22), h('b', { text: 'Theme' }), h('small', { text: M.state.settings.theme })); }
+    paintTheme();
+    themeBtn.addEventListener('click', function () {
+      const order = ['dark', 'light', 'system'], next = order[(order.indexOf(M.state.settings.theme) + 1) % 3];
+      M.set('theme', next, 'Theme: ' + next); paintTheme();
+    });
+    const motion = h('button', { class: 'qs', 'aria-pressed': s.animations ? 'false' : 'true' });
+    function paintMotion() { motion.textContent = ''; motion.setAttribute('aria-pressed', M.state.settings.animations ? 'false' : 'true'); motion.append(M.icon('layers', 22), h('b', { text: 'Reduce motion' }), h('small', { text: M.state.settings.animations ? 'Off' : 'On' })); }
+    paintMotion();
+    motion.addEventListener('click', function () { M.set('animations', !M.state.settings.animations, 'Reduce motion ' + (M.state.settings.animations ? 'off' : 'on')); paintMotion(); });
+    const sound = h('button', { class: 'qs' });
+    function paintSound() { sound.textContent = ''; sound.setAttribute('aria-pressed', M.state.settings.sounds ? 'true' : 'false'); sound.append(M.icon('music', 22), h('b', { text: 'Sounds' }), h('small', { text: M.state.settings.sounds ? 'On' : 'Off' })); }
+    paintSound();
+    sound.addEventListener('click', function () { M.set('sounds', !M.state.settings.sounds, 'Sounds ' + (M.state.settings.sounds ? 'off' : 'on')); paintSound(); });
+    const lockBtn = h('button', { class: 'qs', onclick: function () { closePanel(); M.lock(); } }, M.icon('lock', 22), h('b', { text: 'Lock' }), h('small', { text: 'Show lock screen' }));
+    const bright = h('input', { type: 'range', id: 'qs-bright', min: 40, max: 100, value: s.brightness, 'aria-label': 'Interface brightness', oninput: function (e) { M.state.settings.brightness = +e.target.value; M.applySettings(); }, onchange: function () { M.save.settings(); } });
+    return h('div', { class: 'panel', role: 'dialog', 'aria-label': 'Quick settings' },
+      h('div', { class: 'panel-head' }, h('h2', { text: 'Quick settings' }), h('button', { class: 'wb', 'aria-label': 'Close quick settings', onclick: closePanel }, M.icon('close', 20))),
+      h('div', { class: 'qs-grid' }, themeBtn, motion, sound, lockBtn),
+      h('label', { for: 'qs-bright', class: 'row-hint', text: 'Interface brightness' }), bright,
+      h('div', { style: 'display:flex;gap:8px;margin-top:12px;flex-wrap:wrap' },
+        h('button', { class: 'btn', onclick: function () { closePanel(); M.wm.open('settings'); } }, M.icon('settings', 18), 'All settings')),
+      h('p', { class: 'row-hint', style: 'margin-top:10px', text: 'These controls change MANDO OS only. They do not change your phone’s settings.' }));
+  }
+  $('scrim').addEventListener('click', closePanel);
+
+  /* ---------- lock screen ---------- */
+  let locked = false;
+  function renderLockNote() {
+    const n = M.state.notifs.filter(function (x) { return !x.read; }).length;
+    clockEls.lockNote.textContent = n ? n + ' unread notification' + (n === 1 ? '' : 's') : 'No new notifications';
+  }
+  function buildLock() {
+    const lock = $('lock');
+    clockEls.lockTime = h('div', { class: 'lock-time' });
+    clockEls.lockDate = h('div', { class: 'lock-date' });
+    clockEls.lockNote = h('div', { class: 'lock-note', 'aria-live': 'polite' });
+    lock.append(
+      h('div', { id: 'lock-bg' }),
+      h('div', null, h('div', { class: 'wordmark', style: 'margin-bottom:28px' }, 'MANDO', h('b', { text: 'OS' })), clockEls.lockTime, clockEls.lockDate, clockEls.lockNote),
+      h('div', { class: 'unlock' }, h('div', { class: 'chev' }),
+        h('button', { class: 'btn primary', id: 'btn-unlock', onclick: M.unlock }, M.icon('lock', 18), 'Unlock'),
+        h('small', { text: 'Swipe up or press Enter. This lock screen is part of the experience and is not a security feature.' })));
+    let y0 = null;
+    lock.addEventListener('pointerdown', function (e) { y0 = e.clientY; lock.style.transition = 'none'; });
+    lock.addEventListener('pointermove', function (e) { if (y0 == null) return; const dy = Math.min(0, e.clientY - y0); lock.style.transform = 'translateY(' + dy + 'px)'; });
+    function end(e) {
+      if (y0 == null) return;
+      const dy = e.clientY - y0; y0 = null; lock.style.transition = ''; lock.style.transform = '';
+      if (dy < -70) M.unlock();
+    }
+    lock.addEventListener('pointerup', end); lock.addEventListener('pointercancel', function () { y0 = null; lock.style.transition = ''; lock.style.transform = ''; });
+    document.addEventListener('keydown', function (e) {
+      if (locked && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowUp')) { e.preventDefault(); M.unlock(); }
+    });
+    M.on('notifs', renderLockNote);
+  }
+  M.lock = function () {
+    locked = true;
+    const lock = $('lock'); lock.classList.remove('gone'); lock.removeAttribute('aria-hidden');
+    $('stage').setAttribute('inert', '');
+    lock.dataset.active = '1';
+    setTimeout(function () { const b = $('btn-unlock'); if (b) b.focus(); }, 50);
+  };
+  M.unlock = function () {
+    if (!locked) return;
+    locked = false;
+    const lock = $('lock'); lock.classList.add('gone'); lock.setAttribute('aria-hidden', 'true'); delete lock.dataset.active;
+    $('stage').removeAttribute('inert');
+    M.beep(880, 80);
+    if (M.pendingApp) { const a = M.pendingApp; M.pendingApp = null; setTimeout(function () { M.wm.open(a); }, 250); }
+  };
+  M.isLocked = function () { return locked; };
+
+  /* ---------- global keys ---------- */
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (panelOpen) closePanel();
+      else if (!$('switcher').hidden) closeSwitcher();
+    }
+  });
+
+  /* ---------- start ---------- */
+  M.startShell = function () {
+    M.applySettings();
+    initBattery();
+    buildStatusBar(); buildHome(); buildDock(); buildLock();
+    tick();
+    M.on('settings', tick);
+    if (!M.storage.available()) M.notify('Storage unavailable', 'This browser blocks local storage. Your data will be lost when you refresh.', 'error');
+    if (M.state.settings.lockOnStart) M.lock();
+    const boot = $('boot');
+    let skip = !M.state.settings.bootAnim || window.matchMedia('(prefers-reduced-motion: reduce)').matches || !M.state.settings.animations;
+    try { if (sessionStorage.getItem('mando.booted')) skip = true; sessionStorage.setItem('mando.booted', '1'); } catch (e) { /* session storage unavailable: show boot normally */ }
+    if (skip) boot.remove();
+    else setTimeout(function () { boot.classList.add('gone'); setTimeout(function () { boot.remove(); }, 450); }, 1100);
+  };
+})();
+
+</script>
+<script>
+/* Notes, Tasks, Calculator */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h;
+
+  /* ================= NOTES ================= */
+  M.registerApp({
+    id: 'notes', name: 'Notes', icon: 'notes', desc: 'Write and search local notes', category: 'Productivity', version: '2.1',
+    mount: function (root) {
+      let current = null, dirty = false, query = '';
+      const view = h('div', { class: 'editor' });
+      root.appendChild(view);
+
+      const title = (n) => n.title.trim() || n.body.trim().split('\n')[0].slice(0, 60) || 'Untitled note';
+      const save = M.debounce(flush, 500);
+      function flush() {
+        if (!current) return;
+        const stored = M.state.notes.filter(function (n) { return n.id === current.id; })[0];
+        if (!stored) M.state.notes.unshift(current);
+        current.updated = Date.now();
+        M.save.notes();
+      }
+      M.flushers.add(flush);
+
+      function showList() {
+        if (current) {
+          const empty = !current.title.trim() && !current.body.trim();
+          save.flush();
+          if (empty) M.state.notes = M.state.notes.filter(function (n) { return n.id !== current.id; });
+          else { flush(); if (dirty) M.notify('Note saved', title(current), 'success'); }
+          M.save.notes();
+        }
+        current = null; dirty = false;
+        view.textContent = '';
+        const list = h('div', { class: 'list', role: 'list' });
+        const search = h('input', { type: 'search', id: 'notes-q', placeholder: 'Search notes', 'aria-label': 'Search notes', value: query, autocomplete: 'off', oninput: function (e) { query = e.target.value.toLowerCase(); paint(); } });
+        view.append(
+          h('div', { class: 'toolbar' }, h('label', { class: 'search', for: 'notes-q' }, M.icon('search', 18), search),
+            h('button', { class: 'btn primary', onclick: function () { edit({ id: M.uid(), title: '', body: '', updated: Date.now() }, true); } }, M.icon('plus', 18), 'New')),
+          list);
+        function paint() {
+          list.textContent = '';
+          const items = M.state.notes.filter(function (n) { return !query || (n.title + ' ' + n.body).toLowerCase().indexOf(query) >= 0; })
+            .sort(function (a, b) { return b.updated - a.updated; });
+          if (!items.length) {
+            list.appendChild(M.state.notes.length ? M.empty('search', 'No matching notes', 'Try a different search term.')
+              : M.empty('notes', 'No notes yet', 'Tap New to write your first note. Notes save automatically on this device.'));
+            return;
+          }
+          items.forEach(function (n) {
+            list.appendChild(h('button', { class: 'li', role: 'listitem', onclick: function () { edit(n); } },
+              h('span', { class: 'grow' }, h('span', { class: 't', text: title(n) }),
+                h('span', { class: 's', text: M.fmtStamp(n.updated) + (n.body.trim() ? ' · ' + n.body.trim().replace(/\s+/g, ' ').slice(0, 60) : ' · No text') }))));
+          });
+        }
+        paint();
+      }
+
+      function edit(note, isNew) {
+        current = note; dirty = !!isNew;
+        view.textContent = '';
+        const status = h('span', { class: 'row-hint', role: 'status', text: isNew ? 'New note' : 'Saved ' + M.fmtStamp(note.updated) });
+        const t = h('input', { class: 'title-in', id: 'note-title', value: note.title, placeholder: 'Title', 'aria-label': 'Note title', maxlength: 200, autocomplete: 'off' });
+        const b = h('textarea', { id: 'note-body', 'aria-label': 'Note text', placeholder: 'Start writing…' });
+        b.value = note.body;
+        function changed() {
+          current.title = t.value; current.body = b.value; dirty = true;
+          status.textContent = 'Saving…';
+          save();
+          clearTimeout(changed.t); changed.t = setTimeout(function () { status.textContent = 'Saved ' + M.fmtStamp(Date.now()); }, 650);
+        }
+        t.addEventListener('input', changed); b.addEventListener('input', changed);
+        view.append(
+          h('div', { class: 'toolbar' },
+            h('button', { class: 'btn sm', onclick: showList }, M.icon('back', 16), 'All notes'), status,
+            h('span', { style: 'flex:1' }),
+            h('button', { class: 'btn sm danger', 'aria-label': 'Delete note', onclick: function () {
+              M.confirm({ title: 'Delete this note?', message: '“' + title(current) + '” will be permanently removed from this device.', confirmLabel: 'Delete', danger: true }).then(function (ok) {
+                if (!ok) return;
+                save.flush();
+                M.state.notes = M.state.notes.filter(function (n) { return n.id !== current.id; });
+                current = null; dirty = false; M.save.notes(); M.notify('Note deleted', '', 'info'); showList();
+              });
+            } }, M.icon('trash', 16), 'Delete')),
+          t, b);
+        if (isNew) t.focus();
+      }
+      showList();
+      return { unmount: function () { save.flush(); if (current) { const empty = !current.title.trim() && !current.body.trim(); if (empty) { M.state.notes = M.state.notes.filter(function (n) { return n.id !== current.id; }); M.save.notes(); } else flush(); } M.flushers.delete(flush); } };
+    }
+  });
+
+  /* ================= TASKS ================= */
+  M.registerApp({
+    id: 'tasks', name: 'Tasks', icon: 'tasks', desc: 'Simple to-do list', category: 'Productivity', version: '2.1',
+    mount: function (root) {
+      let filter = 'all', editingId = null;
+      const list = h('div', { class: 'list', role: 'list' });
+      const foot = h('div', { class: 'toolbar', style: 'border-top:1px solid var(--border);border-bottom:0' });
+      const input = h('input', { class: 'field', id: 'task-new', placeholder: 'Add a task', 'aria-label': 'New task', maxlength: 500, autocomplete: 'off' });
+      const filters = h('div', { class: 'toolbar' });
+      function add() {
+        const v = input.value.trim();
+        if (!v) { input.focus(); M.toast('Type a task first.', 'error'); return; }
+        M.state.tasks.unshift({ id: M.uid(), text: v, done: false, created: Date.now() });
+        input.value = ''; M.save.tasks(); paint(); input.focus();
+      }
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') add(); });
+      root.append(
+        h('div', { class: 'toolbar' }, input, h('button', { class: 'btn primary', onclick: add }, M.icon('plus', 18), 'Add')),
+        filters, list, foot);
+
+      function paint() {
+        const all = M.state.tasks, active = all.filter(function (t) { return !t.done; }).length;
+        filters.textContent = '';
+        filters.appendChild(M.segmented([['all', 'All ' + all.length], ['active', 'Active ' + active], ['done', 'Done ' + (all.length - active)]], filter, function (v) { filter = v; paint(); }, 'Filter tasks'));
+        list.textContent = '';
+        const items = all.filter(function (t) { return filter === 'all' || (filter === 'active' ? !t.done : t.done); });
+        if (!items.length) {
+          list.appendChild(all.length ? M.empty('check', 'Nothing here', filter === 'done' ? 'Completed tasks appear here.' : 'All tasks are done.') : M.empty('tasks', 'No tasks yet', 'Add your first task above.'));
+        }
+        items.forEach(function (t) {
+          const row = h('div', { class: 'li' + (t.done ? ' done' : ''), role: 'listitem' });
+          const cb = h('button', { class: 'cb', role: 'checkbox', 'aria-checked': t.done ? 'true' : 'false', 'aria-label': (t.done ? 'Mark not done: ' : 'Mark done: ') + t.text, onclick: function () {
+            t.done = !t.done; M.save.tasks(); if (t.done) M.notify('Task completed', t.text.slice(0, 80), 'success'); paint();
+          } }, t.done ? M.icon('check', 16) : null);
+          row.appendChild(cb);
+          if (editingId === t.id) {
+            const ed = h('input', { class: 'field', value: t.text, 'aria-label': 'Edit task', maxlength: 500 });
+            function commit() { const v = ed.value.trim(); if (v) t.text = v; editingId = null; M.save.tasks(); paint(); }
+            ed.addEventListener('keydown', function (e) { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { editingId = null; paint(); } });
+            row.append(h('span', { class: 'grow' }, ed), h('button', { class: 'mini', 'aria-label': 'Save task', onclick: commit }, M.icon('check', 16)));
+            setTimeout(function () { ed.focus(); }, 0);
+          } else {
+            row.append(h('span', { class: 'grow' }, h('span', { class: 't', style: 'white-space:normal;overflow-wrap:anywhere', text: t.text })),
+              h('button', { class: 'mini', 'aria-label': 'Edit ' + t.text, onclick: function () { editingId = t.id; paint(); } }, M.icon('edit', 16)),
+              h('button', { class: 'mini', 'aria-label': 'Delete ' + t.text, onclick: function () { M.state.tasks = M.state.tasks.filter(function (x) { return x.id !== t.id; }); M.save.tasks(); paint(); } }, M.icon('trash', 16)));
+          }
+          list.appendChild(row);
+        });
+        foot.textContent = '';
+        foot.append(h('span', { class: 'row-hint', text: all.length + ' total · ' + active + ' active' }), h('span', { style: 'flex:1' }),
+          h('button', { class: 'btn sm danger', disabled: all.length === active, onclick: function () {
+            M.confirm({ title: 'Clear completed tasks?', message: (all.length - active) + ' completed task(s) will be deleted.', confirmLabel: 'Clear', danger: true }).then(function (ok) {
+              if (ok) { M.state.tasks = M.state.tasks.filter(function (x) { return !x.done; }); M.save.tasks(); paint(); }
+            });
+          }, text: 'Clear completed' }));
+      }
+      paint();
+    }
+  });
+
+  /* ================= CALCULATOR ================= */
+  // Safe recursive-descent evaluator. No eval(). "%" divides by 100; "200+10%" means 200 + 10% of 200.
+  M.calcEval = function (src) {
+    const s = src.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+    const tokens = [];
+    let i = 0;
+    while (i < s.length) {
+      const c = s[i];
+      if (c === ' ') { i++; continue; }
+      if (/[0-9.]/.test(c)) {
+        const m = /^(\d+\.?\d*|\.\d+)/.exec(s.slice(i));
+        if (!m) throw new Error('Invalid number');
+        tokens.push({ n: parseFloat(m[1]) }); i += m[1].length;
+      } else if ('+-*/%()'.indexOf(c) >= 0) { tokens.push({ v: c }); i++; }
+      else throw new Error('Invalid character');
+    }
+    if (!tokens.length) throw new Error('Nothing to calculate');
+    let p = 0;
+    const peek = function () { return tokens[p]; };
+    function expr() {
+      let left = term();
+      while (peek() && (peek().v === '+' || peek().v === '-')) {
+        const op = tokens[p++].v, right = term();
+        const r = right.pct ? left.v * right.v : right.v;
+        left = { v: op === '+' ? left.v + r : left.v - r, pct: false };
+      }
+      return left;
+    }
+    function term() {
+      let left = unary();
+      while (peek() && (peek().v === '*' || peek().v === '/')) {
+        const op = tokens[p++].v, right = unary();
+        if (op === '/') { if (right.v === 0) throw new Error('Cannot divide by zero'); left = { v: left.v / right.v, pct: false }; }
+        else left = { v: left.v * right.v, pct: false };
+      }
+      return left;
+    }
+    function unary() {
+      const t = peek();
+      if (t && t.v === '-') { p++; const u = unary(); return { v: -u.v, pct: u.pct }; }
+      if (t && t.v === '+') { p++; return unary(); }
+      return postfix();
+    }
+    function postfix() {
+      let a = primary();
+      while (peek() && peek().v === '%') { p++; a = { v: a.v / 100, pct: true }; }
+      return a;
+    }
+    function primary() {
+      const t = tokens[p++];
+      if (!t) throw new Error('Incomplete expression');
+      if (t.n !== undefined) return { v: t.n, pct: false };
+      if (t.v === '(') { const e = expr(); if (!tokens[p] || tokens[p].v !== ')') throw new Error('Missing closing bracket'); p++; return { v: e.v, pct: false }; }
+      throw new Error('Invalid expression');
+    }
+    const r = expr();
+    if (p < tokens.length) throw new Error('Invalid expression');
+    if (!isFinite(r.v)) throw new Error('Result is too large');
+    return r.v;
+  };
+  M.calcFormat = function (n) {
+    if (n === 0) return '0';
+    const a = Math.abs(n);
+    if (a >= 1e15 || a < 1e-9) return n.toExponential(6).replace(/\.?0+e/, 'e');
+    const x = parseFloat(n.toPrecision(12));
+    return x.toLocaleString(undefined, { maximumFractionDigits: 10 });
+  };
+
+  M.registerApp({
+    id: 'calc', name: 'Calculator', icon: 'calc', desc: 'Everyday arithmetic with history', category: 'Utilities', version: '2.1',
+    mount: function (root, ctx) {
+      let expr = '', fresh = false, history = M.storage.get('calcHistory', []);
+      if (!Array.isArray(history)) history = [];
+      history = history.filter(function (x) { return x && typeof x.e === 'string' && typeof x.r === 'string'; }).slice(0, 30);
+      const exprEl = h('div', { class: 'calc-expr' }), resEl = h('div', { class: 'calc-res', 'aria-live': 'polite' });
+      const histEl = h('div', { class: 'hist' });
+      const pretty = function (s) { return s.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−'); };
+      function show(err) {
+        exprEl.textContent = pretty(expr);
+        resEl.classList.toggle('bad', !!err);
+        if (err) { resEl.textContent = err; return; }
+        if (!expr) { resEl.textContent = '0'; return; }
+        try { resEl.textContent = M.calcFormat(M.calcEval(expr)); } catch (e) { resEl.textContent = expr.slice(-14); resEl.classList.remove('bad'); if (/[+\-*/]$/.test(expr)) resEl.textContent = pretty(expr.slice(-14)); }
+      }
+      function paintHist() {
+        histEl.textContent = '';
+        if (!history.length) { histEl.appendChild(h('p', { class: 'row-hint', style: 'text-align:center', text: 'Your calculations appear here.' })); return; }
+        history.forEach(function (x) { histEl.appendChild(h('button', { onclick: function () { expr = x.r.replace(/,/g, ''); fresh = true; show(); }, text: pretty(x.e) + ' = ' + x.r })); });
+      }
+      function press(k) {
+        const last = expr.slice(-1), isOp = /[+\-*/]/.test(k);
+        if (/[0-9]/.test(k)) { if (fresh) { expr = ''; fresh = false; } expr += k; }
+        else if (k === '.') {
+          if (fresh) { expr = ''; fresh = false; }
+          const cur = expr.split(/[+\-*/%()]/).pop();
+          if (cur.indexOf('.') >= 0) return show();
+          expr += cur === '' ? '0.' : '.';
+        } else if (isOp) {
+          fresh = false;
+          if (!expr) { if (k === '-') expr = '-'; return show(); }
+          if (/[+\-*/]/.test(last)) { if (expr.length === 1) return show(); expr = expr.slice(0, -1) + k; }
+          else expr += k;
+        } else if (k === '%') { fresh = false; if (expr && /[0-9%)]/.test(last)) expr += '%'; }
+        else if (k === 'C') { expr = ''; fresh = false; }
+        else if (k === 'B') { if (fresh) { expr = ''; fresh = false; } else expr = expr.slice(0, -1); }
+        else if (k === '=') {
+          if (!expr) return show('Enter a calculation first');
+          try {
+            const r = M.calcFormat(M.calcEval(expr));
+            history.unshift({ e: expr, r: r }); history = history.slice(0, 30); M.storage.set('calcHistory', history); paintHist();
+            exprEl.textContent = pretty(expr) + ' ='; resEl.textContent = r; resEl.classList.remove('bad');
+            const v = parseFloat(M.calcEval(expr).toPrecision(12)); expr = /e/i.test(String(v)) ? '' : String(v); fresh = true; return;
+          } catch (e) { return show(e.message); }
+        }
+        show();
+      }
+      const layout = [['C', 'op'], ['B', 'op', '⌫'], ['%', 'op'], ['/', 'op', '÷'], '7', '8', '9', ['*', 'op', '×'], '4', '5', '6', ['-', 'op', '−'], '1', '2', '3', ['+', 'op'], ['0', '', '0', 'wide'], '.', ['=', 'eq']];
+      const keys = h('div', { class: 'keys' });
+      layout.forEach(function (k) {
+        const key = Array.isArray(k) ? k[0] : k, cls = Array.isArray(k) ? k[1] : '', label = Array.isArray(k) && k[2] ? k[2] : key, wide = Array.isArray(k) && k[3];
+        const names = { C: 'Clear', B: 'Delete last', '/': 'Divide', '*': 'Multiply', '-': 'Subtract', '+': 'Add', '=': 'Equals', '%': 'Percent', '.': 'Decimal point' };
+        keys.appendChild(h('button', { class: 'key ' + cls + (key === '=' ? '' : '') + (wide ? ' wide' : ''), 'aria-label': names[key] || key, text: label, onclick: function () { press(key); } }));
+      });
+      const clearHist = h('button', { class: 'btn sm', onclick: function () { history = []; M.storage.set('calcHistory', history); paintHist(); }, text: 'Clear history' });
+      root.appendChild(h('div', { class: 'calc' }, h('div', { class: 'calc-disp' }, exprEl, resEl), keys,
+        h('div', { class: 'rowx' }, h('span', { class: 'h3 grow', text: 'History' }), clearHist), histEl));
+      show(); paintHist();
+      function onKey(e) {
+        if (!ctx.isFront() || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (/^(INPUT|TEXTAREA)$/.test((e.target.tagName || ''))) return;
+        const k = e.key;
+        if (/^[0-9.+\-*/%]$/.test(k)) press(k);
+        else if (k === 'Enter' || k === '=') { e.preventDefault(); press('='); }
+        else if (k === 'Backspace') press('B');
+        else if (k === 'Escape' || k === 'c' || k === 'C') press('C');
+        else return;
+      }
+      document.addEventListener('keydown', onKey);
+      return { unmount: function () { document.removeEventListener('keydown', onKey); } };
+    }
+  });
+})();
+
+</script>
+<script>
+/* Virtual file system (stored in this browser) and the Files app. */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h;
+
+  const TEXT_EXT = ['txt', 'md', 'json', 'csv', 'log', 'js', 'css', 'html', 'htm', 'xml', 'yaml', 'yml', 'ini', 'sh', 'py'];
+  const IMG_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
+  const MAX_TEXT = 300 * 1024, MAX_IMG = 400 * 1024;
+  const ext = function (n) { const i = n.lastIndexOf('.'); return i > 0 ? n.slice(i + 1).toLowerCase() : ''; };
+  const kindOf = function (n) { const e = ext(n.name); return n.type === 'dir' ? 'dir' : IMG_EXT.indexOf(e) >= 0 && n.content.indexOf('data:image') === 0 ? 'image' : 'text'; };
+
+  /* ---------- file system model ---------- */
+  const FS = (M.fs = { nodes: [] });
+  function seed() {
+    const now = Date.now(), n = [];
+    const mk = function (id, name, type, parent, content) { n.push({ id: id, name: name, type: type, parent: parent, content: content || '', created: now, updated: now }); };
+    mk('docs', 'Documents', 'dir', 'root'); mk('pics', 'Pictures', 'dir', 'root'); mk('proj', 'Projects', 'dir', 'root');
+    mk('readme', 'readme.txt', 'file', 'root', 'Welcome to MANDO OS.\n\nThis is a virtual file system stored in your browser. It is not your phone\'s storage.\nYou can create, rename and delete files here, import small text files and images, and open HTML files in the Browser app.\n');
+    mk('hello', 'hello.html', 'file', 'proj', '<!doctype html><html><body style="font-family:sans-serif;padding:24px"><h1>Hello from MANDO OS</h1><p>This page lives in the virtual file system and is shown in a sandbox with scripts disabled.</p></body></html>');
+    return n;
+  }
+  function load() {
+    const raw = M.storage.get('fs', null);
+    let nodes = Array.isArray(raw) ? raw.filter(function (x) { return x && typeof x.id === 'string' && typeof x.name === 'string' && (x.type === 'dir' || x.type === 'file') && typeof x.parent === 'string'; })
+      .map(function (x) { return { id: x.id.slice(0, 64), name: x.name.slice(0, 80), type: x.type, parent: x.parent.slice(0, 64), content: typeof x.content === 'string' ? x.content : '', created: +x.created || Date.now(), updated: +x.updated || Date.now() }; }) : null;
+    if (!nodes || !nodes.length) nodes = seed();
+    const ids = {}; nodes.forEach(function (x) { ids[x.id] = x; });
+    FS.nodes = nodes.filter(function (x) { return x.parent === 'root' || (ids[x.parent] && ids[x.parent].type === 'dir'); });
+  }
+  load();
+  const persist = M.debounce(function () { M.storage.set('fs', FS.nodes); M.emit('fs'); }, 250);
+  M.flushers.add(function () { M.storage.set('fs', FS.nodes); });
+  FS.get = function (id) { return id === 'root' ? { id: 'root', name: '', type: 'dir', parent: null } : FS.nodes.filter(function (x) { return x.id === id; })[0] || null; };
+  FS.list = function (parent) { return FS.nodes.filter(function (x) { return x.parent === parent; }).sort(function (a, b) { return a.type === b.type ? a.name.localeCompare(b.name) : (a.type === 'dir' ? -1 : 1); }); };
+  FS.pathOf = function (id) { const parts = []; let n = FS.get(id); while (n && n.id !== 'root') { parts.unshift(n.name); n = FS.get(n.parent); } return '/' + parts.join('/'); };
+  FS.child = function (parent, name) { return FS.nodes.filter(function (x) { return x.parent === parent && x.name === name; })[0] || null; };
+  FS.resolve = function (path, cwd) {
+    let cur = path[0] === '/' ? 'root' : cwd;
+    const parts = path.split('/').filter(Boolean);
+    for (let i = 0; i < parts.length; i++) {
+      const p = parts[i];
+      if (p === '.') continue;
+      if (p === '..') { const n = FS.get(cur); cur = n && n.parent ? n.parent : 'root'; continue; }
+      const c = FS.child(cur, p);
+      if (!c) return null;
+      cur = c.id;
+    }
+    return FS.get(cur);
+  };
+  FS.validName = function (name, parent, selfId) {
+    if (!name || !name.trim()) return 'Enter a name.';
+    if (name.length > 80) return 'Names can be up to 80 characters.';
+    if (/[\/\\]/.test(name) || name === '.' || name === '..') return 'A name cannot contain slashes or be "." or "..".';
+    const dup = FS.child(parent, name);
+    if (dup && dup.id !== selfId) return 'An item with that name already exists here.';
+    return '';
+  };
+  FS.create = function (type, name, parent, content) {
+    const err = FS.validName(name, parent); if (err) throw new Error(err);
+    const now = Date.now(), n = { id: M.uid(), name: name, type: type, parent: parent, content: content || '', created: now, updated: now };
+    FS.nodes.push(n); persist(); return n;
+  };
+  FS.rename = function (id, name) { const n = FS.get(id); const err = FS.validName(name, n.parent, id); if (err) throw new Error(err); n.name = name; n.updated = Date.now(); persist(); };
+  FS.write = function (id, content) { const n = FS.get(id); n.content = content; n.updated = Date.now(); persist(); };
+  FS.remove = function (id) {
+    const kill = [id];
+    for (let i = 0; i < kill.length; i++) FS.nodes.forEach(function (x) { if (x.parent === kill[i]) kill.push(x.id); });
+    FS.nodes = FS.nodes.filter(function (x) { return kill.indexOf(x.id) < 0; }); persist();
+  };
+  FS.size = function (n) { return n.type === 'dir' ? FS.list(n.id).length + ' items' : M.fmtBytes(new Blob([n.content]).size); };
+  FS.usage = function () { return FS.nodes.reduce(function (a, n) { return a + n.content.length * 2; }, 0); };
+  FS.reset = function () { FS.nodes = seed(); persist(); };
+
+  /* ---------- Files app ---------- */
+  M.registerApp({
+    id: 'files', name: 'Files', icon: 'files', desc: 'Virtual folders and files inside MANDO OS', category: 'Productivity', version: '2.1',
+    mount: function (root) {
+      let cwd = 'root', open = null, objectUrl = null;
+      const view = h('div', { class: 'viewer', style: 'flex:1;min-height:0;display:flex;flex-direction:column' });
+      const picker = h('input', { type: 'file', multiple: true, hidden: true, id: 'files-import', 'aria-label': 'Import files' });
+      const quick = h('input', { type: 'file', hidden: true, id: 'files-quick', 'aria-label': 'Open a file from your device' });
+      root.append(view, picker, quick);
+      function revoke() { if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; } }
+      const fail = function (msg) { M.toast(msg, 'error'); };
+
+      function browse() {
+        open = null; revoke(); view.textContent = '';
+        const list = h('div', { class: 'list', role: 'list' });
+        const crumbs = h('div', { class: 'crumbs', 'aria-label': 'Folder path' });
+        const trail = []; let n = FS.get(cwd);
+        while (n && n.id !== 'root') { trail.unshift(n); n = FS.get(n.parent); }
+        crumbs.appendChild(h('button', { onclick: function () { cwd = 'root'; browse(); }, text: 'MANDO' }));
+        trail.forEach(function (t) { crumbs.append('/', h('button', { onclick: function () { cwd = t.id; browse(); }, text: t.name })); });
+        view.append(
+          h('div', { class: 'toolbar' },
+            h('button', { class: 'btn sm', disabled: cwd === 'root', 'aria-label': 'Up one folder', onclick: function () { cwd = FS.get(cwd).parent || 'root'; browse(); } }, M.icon('up', 16), 'Up'),
+            h('button', { class: 'btn sm', onclick: function () { newItem('dir'); } }, M.icon('folder', 16), 'New folder'),
+            h('button', { class: 'btn sm', onclick: function () { newItem('file'); } }, M.icon('plus', 16), 'New file'),
+            h('button', { class: 'btn sm', onclick: function () { picker.click(); } }, M.icon('upload', 16), 'Import'),
+            h('button', { class: 'btn sm', onclick: function () { quick.click(); } }, 'Quick open')),
+          crumbs, list,
+          h('p', { class: 'limits', style: 'padding:8px var(--pad)', text: 'This is a virtual drive stored in this browser. Browsers cannot open your phone’s whole storage; Import and Quick open only read files you pick. Import accepts text files up to 300 KB and images up to 400 KB.' }));
+        const items = FS.list(cwd);
+        if (!items.length) list.appendChild(M.empty('folder', 'This folder is empty', 'Create a file or folder, or import something from your device.'));
+        items.forEach(function (it) {
+          list.appendChild(h('div', { class: 'li', role: 'listitem' },
+            h('button', { class: 'grow', style: 'display:flex;gap:10px;align-items:center;background:none;border:0;text-align:left;min-width:0;padding:0', 'aria-label': (it.type === 'dir' ? 'Open folder ' : 'Open file ') + it.name, onclick: function () { it.type === 'dir' ? (cwd = it.id, browse()) : openFile(it); } },
+              h('span', { class: 'fi-ic' }, M.icon(it.type === 'dir' ? 'folder' : kindOf(it) === 'image' ? 'image' : 'file', 20)),
+              h('span', { class: 'grow' }, h('span', { class: 't', text: it.name }), h('span', { class: 's', text: FS.size(it) + ' · ' + M.fmtStamp(it.updated) }))),
+            h('button', { class: 'mini', 'aria-label': 'Rename ' + it.name, onclick: function () { rename(it); } }, M.icon('edit', 16)),
+            h('button', { class: 'mini', 'aria-label': 'Delete ' + it.name, onclick: function () { del(it); } }, M.icon('trash', 16))));
+        });
+      }
+      function newItem(type) {
+        M.askText({ title: type === 'dir' ? 'New folder' : 'New text file', label: 'Name', value: type === 'dir' ? '' : 'untitled.txt', validate: function (v) { return FS.validName(v, cwd); } }).then(function (name) {
+          if (!name) return;
+          try { const n = FS.create(type, name, cwd, ''); M.notify(type === 'dir' ? 'Folder created' : 'File created', name, 'success'); type === 'file' ? openFile(n) : browse(); } catch (e) { fail(e.message); }
+        });
+      }
+      function rename(it) {
+        M.askText({ title: 'Rename', label: 'New name', value: it.name, validate: function (v) { return FS.validName(v, it.parent, it.id); } }).then(function (name) {
+          if (!name || name === it.name) return;
+          try { FS.rename(it.id, name); browse(); } catch (e) { fail(e.message); }
+        });
+      }
+      function del(it) {
+        M.confirm({ title: 'Delete ' + (it.type === 'dir' ? 'folder' : 'file') + '?', message: '“' + it.name + '”' + (it.type === 'dir' ? ' and everything inside it' : '') + ' will be permanently deleted from this browser.', confirmLabel: 'Delete', danger: true }).then(function (ok) {
+          if (ok) { FS.remove(it.id); M.notify('Deleted', it.name, 'info'); browse(); }
+        });
+      }
+
+      function openFile(it) {
+        open = it; revoke(); view.textContent = '';
+        const back = h('button', { class: 'btn sm', onclick: browse }, M.icon('back', 16), 'Back');
+        if (kindOf(it) === 'image') {
+          view.append(h('div', { class: 'toolbar' }, back, h('strong', { text: it.name })), h('img', { src: it.content, alt: 'Preview of ' + it.name }));
+          return;
+        }
+        const ta = h('textarea', { 'aria-label': 'File contents of ' + it.name, spellcheck: false }); ta.value = it.content;
+        const status = h('span', { class: 'row-hint', role: 'status', text: 'Saved' });
+        const preview = h('div', { hidden: true, style: 'flex:1;min-height:200px;display:flex' });
+        const e = ext(it.name);
+        ta.addEventListener('input', function () { status.textContent = 'Unsaved changes'; });
+        function save() { FS.write(it.id, ta.value); status.textContent = 'Saved'; M.notify('File saved', it.name, 'success'); }
+        const bar = h('div', { class: 'toolbar' }, back, h('strong', { style: 'min-width:0;overflow:hidden;text-overflow:ellipsis', text: it.name }), status, h('span', { style: 'flex:1' }),
+          h('button', { class: 'btn sm primary', onclick: save }, M.icon('save', 16), 'Save'),
+          h('button', { class: 'btn sm', onclick: function () { M.download(it.name, ta.value); M.notify('File exported', it.name, 'info'); } }, M.icon('download', 16), 'Download'));
+        if (e === 'json') bar.appendChild(h('button', { class: 'btn sm', onclick: function () { try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); status.textContent = 'Formatted (unsaved)'; } catch (err) { fail('This is not valid JSON.'); } }, text: 'Format JSON' }));
+        if (e === 'html' || e === 'htm') bar.appendChild(h('button', { class: 'btn sm', onclick: function () {
+          const on = preview.hidden; preview.hidden = !on; ta.hidden = on; preview.textContent = '';
+          if (on) preview.appendChild(h('iframe', { sandbox: '', srcdoc: ta.value, title: 'Preview of ' + it.name, style: 'flex:1;border:0;background:#fff;width:100%' }));
+        }, text: 'Preview' }));
+        view.append(bar, ta, preview);
+      }
+
+      picker.addEventListener('change', function () {
+        const files = Array.prototype.slice.call(picker.files || []); picker.value = '';
+        let added = 0, pending = files.length;
+        if (!pending) return;
+        files.forEach(function (f) {
+          const e = ext(f.name), isImg = IMG_EXT.indexOf(e) >= 0, isTxt = TEXT_EXT.indexOf(e) >= 0 || (f.type || '').indexOf('text/') === 0;
+          const done = function () { if (--pending === 0) { if (added) M.notify('Imported', added + ' file' + (added === 1 ? '' : 's') + ' added to ' + (FS.pathOf(cwd) || '/'), 'success'); browse(); } };
+          if (!isImg && !isTxt) { fail(f.name + ': unsupported type. Only text files and images can be imported.'); return done(); }
+          if (f.size > (isImg ? MAX_IMG : MAX_TEXT)) { fail(f.name + ' is too large (' + M.fmtBytes(f.size) + ').'); return done(); }
+          let name = f.name.replace(/[\/\\]/g, '_').slice(0, 80), k = 1;
+          while (FS.child(cwd, name)) name = f.name.slice(0, 70) + ' (' + (++k) + ')';
+          const r = new FileReader();
+          r.onerror = function () { fail('Could not read ' + f.name + '.'); done(); };
+          r.onload = function () { try { FS.create('file', name, cwd, r.result); added++; } catch (err) { fail(err.message); } done(); };
+          isImg ? r.readAsDataURL(f) : r.readAsText(f);
+        });
+      });
+      quick.addEventListener('change', function () {
+        const f = quick.files && quick.files[0]; quick.value = '';
+        if (!f) return;
+        revoke(); view.textContent = '';
+        const back = h('button', { class: 'btn sm', onclick: browse }, M.icon('back', 16), 'Back');
+        const info = h('p', { class: 'row-hint', style: 'padding:8px var(--pad)', text: f.name + ' · ' + (f.type || 'unknown type') + ' · ' + M.fmtBytes(f.size) + ' · not saved in MANDO OS' });
+        view.append(h('div', { class: 'toolbar' }, back, h('strong', { text: 'Quick open' })), info);
+        const e = ext(f.name);
+        if ((f.type || '').indexOf('image/') === 0) { objectUrl = URL.createObjectURL(f); view.appendChild(h('img', { src: objectUrl, alt: 'Preview of ' + f.name })); }
+        else if ((f.type || '').indexOf('audio/') === 0) { objectUrl = URL.createObjectURL(f); const a = h('audio', { controls: true, src: objectUrl, style: 'margin:var(--pad);width:calc(100% - 2*var(--pad))' }); a.addEventListener('error', function () { view.appendChild(h('p', { class: 'err', style: 'padding:var(--pad)', text: 'This browser cannot play that audio format.' })); }); view.appendChild(a); }
+        else if (TEXT_EXT.indexOf(e) >= 0 || (f.type || '').indexOf('text/') === 0) {
+          if (f.size > 1024 * 1024) { view.appendChild(h('p', { class: 'err', style: 'padding:var(--pad)', text: 'Text files over 1 MB cannot be previewed.' })); return; }
+          const r = new FileReader(); r.onload = function () { const ta = h('textarea', { readonly: true, 'aria-label': 'Contents of ' + f.name }); ta.value = r.result; view.appendChild(ta); };
+          r.onerror = function () { view.appendChild(h('p', { class: 'err', style: 'padding:var(--pad)', text: 'Could not read that file.' })); }; r.readAsText(f);
+        } else view.appendChild(M.empty('info', 'No preview available', 'MANDO Files can preview text, images and audio. This file type is not supported.'));
+      });
+      browse();
+      return { unmount: revoke };
+    }
+  });
+})();
+
+</script>
+<script>
+/* Terminal Lab (simulated, safe interpreter) and Browser */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h, FS = M.fs;
+
+  /* ================= TERMINAL ================= */
+  const REAL_ONLY = ['sudo', 'su', 'rm', 'apt', 'apt-get', 'ping', 'nmap', 'ssh', 'curl', 'wget', 'chmod', 'chown', 'kill', 'ps', 'top', 'ifconfig', 'ip', 'git', 'python', 'node', 'bash', 'sh', 'cp', 'mv', 'grep', 'find', 'nano', 'vim', 'dd', 'mount'];
+  function parseArgs(line) {
+    const out = [], re = /"([^"]*)"|'([^']*)'|(\S+)/g; let m;
+    while ((m = re.exec(line))) out.push(m[1] != null ? m[1] : m[2] != null ? m[2] : m[3]);
+    return out;
+  }
+  M.registerApp({
+    id: 'terminal', name: 'Terminal Lab', icon: 'terminal', desc: 'Safe, simulated command interpreter', category: 'Tools', version: '2.1',
+    mount: function (root, ctx) {
+      let cwd = 'root', hist = [], hi = -1;
+      const out = h('div', { class: 'term-out', role: 'log', 'aria-live': 'polite', 'aria-label': 'Terminal output' });
+      const ps = h('span', { class: 'ps' });
+      const input = h('input', { id: 'term-input', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, 'aria-label': 'Terminal command' });
+      const prompt = function () { const n = (M.state.settings.name || 'user').toLowerCase().replace(/\s+/g, '-'); return n + '@mando:' + (cwd === 'root' ? '~' : FS.pathOf(cwd)) + '$'; };
+      const refreshPs = function () { ps.textContent = prompt(); };
+      function print(text, cls) { out.appendChild(h('div', { class: cls || '', text: text })); out.scrollTop = out.scrollHeight; }
+      function banner() {
+        print('MANDO Terminal Lab ' + M.VERSION, 'term-banner');
+        print('A safe, simulated interpreter. It runs only the built-in commands listed by "help". It is not a Linux shell and cannot run real system commands.', 'dim');
+      }
+      const files = function (arg) { return FS.resolve(arg || '.', cwd); };
+      const cmds = {
+        help: function () { return ['Built-in commands:', '  help  clear  date  time  whoami  hostname  uname [-a]  neofetch  version  about', '  ls [path]  cd <path>  pwd  cat <file>  mkdir <name>  touch <name>  echo <text>', '  apps  open <app>  notes  tasks  theme [dark|light|system]  history', 'Everything here is simulated. Files are the virtual drive from the Files app.']; },
+        clear: function () { out.textContent = ''; return null; },
+        date: function () { return [new Date().toString()]; },
+        time: function () { return [M.fmtTime(new Date(), true)]; },
+        whoami: function () { return [M.state.settings.name || 'user']; },
+        hostname: function () { return ['mando']; },
+        uname: function (a) { return [a[0] === '-a' ? 'MANDO OS ' + M.VERSION + ' (browser simulation) ' + navigator.platform + ' - no kernel, runs inside your web browser' : 'MANDO']; },
+        version: function () { return ['MANDO OS ' + M.VERSION]; },
+        about: function () { return ['MANDO OS ' + M.VERSION + ': an interactive operating-system experience built with HTML, CSS and JavaScript.', 'It is not a real operating system, an Android replacement or a Linux installation.']; },
+        pwd: function () { return [cwd === 'root' ? '/' : FS.pathOf(cwd)]; },
+        ls: function (a) { const n = files(a[0]); if (!n) return ['ls: cannot access ‘' + a[0] + '’: No such file or directory']; if (n.type !== 'dir') return [n.name]; const l = FS.list(n.id); return l.length ? l.map(function (x) { return x.type === 'dir' ? x.name + '/' : x.name; }) : ['(empty)']; },
+        cd: function (a) { const n = files(a[0] || '/'); if (!n) return ['cd: no such directory: ' + a[0]]; if (n.type !== 'dir') return ['cd: not a directory: ' + a[0]]; cwd = n.id; refreshPs(); return []; },
+        cat: function (a) { if (!a[0]) return ['cat: missing file name']; const n = files(a[0]); if (!n) return ['cat: ' + a[0] + ': No such file or directory']; if (n.type === 'dir') return ['cat: ' + a[0] + ': Is a directory']; if (n.content.indexOf('data:image') === 0) return ['cat: ' + a[0] + ': binary image data not shown']; return n.content.split('\n'); },
+        mkdir: function (a) { if (!a[0]) return ['mkdir: missing folder name']; try { FS.create('dir', a[0], cwd); return []; } catch (e) { return ['mkdir: ' + e.message]; } },
+        touch: function (a) { if (!a[0]) return ['touch: missing file name']; if (FS.child(cwd, a[0])) return []; try { FS.create('file', a[0], cwd, ''); return []; } catch (e) { return ['touch: ' + e.message]; } },
+        echo: function (a) { return [a.join(' ')]; },
+        history: function () { return hist.length ? hist.map(function (c, i) { return String(i + 1).padStart(3) + '  ' + c; }) : ['(no commands yet)']; },
+        apps: function () { return M.apps.map(function (a) { return (M.isInstalled(a.id) ? '● ' : '○ ') + a.id.padEnd(10) + a.name; }).concat(['● installed  ○ not installed']); },
+        open: function (a) { const app = M.getApp(a[0]); if (!app) return ['open: unknown app "' + (a[0] || '') + '". Try "apps".']; if (!M.isInstalled(app.id)) return ['open: ' + app.name + ' is not installed.']; setTimeout(function () { M.wm.open(app.id); }, 0); return ['Opening ' + app.name + '…']; },
+        notes: function () { const n = M.state.notes; return [n.length + ' note(s) saved'].concat(n.slice(0, 10).map(function (x) { return '  - ' + (x.title.trim() || 'Untitled'); })); },
+        tasks: function () { const t = M.state.tasks; return [t.filter(function (x) { return !x.done; }).length + ' active of ' + t.length + ' task(s)'].concat(t.slice(0, 10).map(function (x) { return '  [' + (x.done ? 'x' : ' ') + '] ' + x.text; })); },
+        theme: function (a) { if (a[0]) { if (M.ENUM.theme.indexOf(a[0]) < 0) return ['theme: choose dark, light or system']; M.set('theme', a[0], 'Theme: ' + a[0]); } return ['theme: ' + M.state.settings.theme]; },
+        neofetch: function () {
+          const brands = navigator.userAgentData && navigator.userAgentData.brands ? navigator.userAgentData.brands.map(function (b) { return b.brand; }).filter(function (b) { return !/not.?a.?brand/i.test(b); }).join(', ') : 'Not available';
+          return ['  __  __    MANDO OS ' + M.VERSION, ' |  \\/  |   ---------------', ' | |\\/| |   OS: MANDO OS (browser simulation)', ' | |  | |   Browser: ' + (brands || 'Not available'), ' |_|  |_|   Screen: ' + screen.width + 'x' + screen.height, '             Language: ' + navigator.language, '             Time zone: ' + Intl.DateTimeFormat().resolvedOptions().timeZone, '             CPU threads: ' + (navigator.hardwareConcurrency || 'Not available'), '             Device memory: ' + (navigator.deviceMemory ? '≥ ' + navigator.deviceMemory + ' GB (rounded by browser)' : 'Not available'), '             Theme: ' + M.state.settings.theme, '', 'Values come from your browser. No kernel or hardware access exists here.'];
+        }
+      };
+      function run(line) {
+        line = line.trim();
+        print(prompt() + ' ' + line, 'cmd');
+        if (!line) return;
+        hist.push(line); if (hist.length > 100) hist.shift(); hi = hist.length;
+        const parts = parseArgs(line), name = parts.shift();
+        if (Object.prototype.hasOwnProperty.call(cmds, name)) {
+          let res; try { res = cmds[name](parts); } catch (e) { res = [name + ': ' + e.message]; }
+          if (res) res.forEach(function (l) { print(l, /^(\S+: )?(cannot|No such|missing)|: No such|not found|unknown|choose/.test(l) ? 'err' : ''); });
+        } else if (REAL_ONLY.indexOf(name) >= 0) print(name + ': this needs real operating-system access, which a browser does not provide. Type "help" to see what is available.', 'err');
+        else print('mando: command not found: ' + name + '. This interpreter only runs its built-in commands. Type "help".', 'err');
+      }
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { const v = input.value; input.value = ''; run(v); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (hist.length) { hi = Math.max(0, hi - 1); input.value = hist[hi]; } }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(hist.length, hi + 1); input.value = hist[hi] || ''; }
+      });
+      const chips = h('div', { class: 'term-chips' });
+      ['help', 'ls', 'neofetch', 'apps', 'date', 'clear'].forEach(function (c) { chips.appendChild(h('button', { class: 'chip', onclick: function () { run(c); input.focus({ preventScroll: true }); }, text: c })); });
+      refreshPs(); banner();
+      root.appendChild(h('div', { class: 'term', onclick: function (e) { if (e.target === out || e.target.classList.contains('term')) input.focus(); } },
+        out, chips, h('div', { class: 'term-in' }, ps, input, h('button', { class: 'chip', 'aria-label': 'Run command', onclick: function () { const v = input.value; input.value = ''; run(v); input.focus(); }, text: 'Run' }))));
+    }
+  });
+
+  /* ================= BROWSER ================= */
+  M.registerApp({
+    id: 'browser', name: 'Browser', icon: 'globe', desc: 'Bookmarks, history and local pages', category: 'Internet', version: '2.1',
+    mount: function (root) {
+      let data = M.storage.get('browser', {});
+      if (!data || typeof data !== 'object') data = {};
+      data.bookmarks = Array.isArray(data.bookmarks) ? data.bookmarks.filter(function (b) { return b && typeof b.url === 'string'; }).slice(0, 100) : [{ title: 'Readme (local file)', url: 'mando://file/readme.txt' }, { title: 'Hello page (local HTML)', url: 'mando://file/Projects/hello.html' }];
+      data.history = Array.isArray(data.history) ? data.history.filter(function (b) { return b && typeof b.url === 'string'; }).slice(0, 100) : [];
+      const saveData = function () { M.storage.set('browser', data); };
+      let stack = ['mando://start'], idx = 0;
+      const addr = h('input', { class: 'field', id: 'br-addr', type: 'text', 'aria-label': 'Address', autocomplete: 'off', autocapitalize: 'off', spellcheck: false, placeholder: 'Search or enter an address' });
+      const page = h('div', { class: 'page' });
+      const back = h('button', { class: 'mini', 'aria-label': 'Back', onclick: function () { go(idx - 1, true); } }, M.icon('back', 18));
+      const fwd = h('button', { class: 'mini', 'aria-label': 'Forward', onclick: function () { go(idx + 1, true); } }, M.icon('forward', 18));
+      const star = h('button', { class: 'mini', 'aria-label': 'Toggle bookmark', onclick: toggleBm }, M.icon('star', 18));
+      const isBm = function (u) { return data.bookmarks.some(function (b) { return b.url === u; }); };
+
+      function normalize(v) {
+        v = v.trim();
+        if (!v) return null;
+        if (/^mando:\/\//i.test(v)) return v;
+        if (v[0] === '/') return 'mando://file' + v;
+        if (/^https?:\/\//i.test(v)) return v;
+        if (/^[^\s]+\.[a-z]{2,}([\/?#:].*)?$/i.test(v)) return 'https://' + v;
+        return 'mando://search/' + encodeURIComponent(v);
+      }
+      function navigate(url) {
+        if (!url) return;
+        stack = stack.slice(0, idx + 1); stack.push(url); idx = stack.length - 1;
+        data.history.unshift({ url: url, time: Date.now() }); data.history = data.history.slice(0, 100); saveData();
+        render();
+      }
+      function go(i, noHistory) { if (i < 0 || i >= stack.length) return; idx = i; render(); }
+      function toggleBm() {
+        const u = stack[idx];
+        if (u === 'mando://start' || u === 'mando://history') { M.toast('Open a page first, then bookmark it.', 'error'); return; }
+        if (isBm(u)) data.bookmarks = data.bookmarks.filter(function (b) { return b.url !== u; });
+        else data.bookmarks.unshift({ title: u.replace(/^(mando:\/\/file|https?:\/\/)/, '').slice(0, 60) || u, url: u });
+        saveData(); M.toast(isBm(u) ? 'Bookmark added' : 'Bookmark removed'); render();
+      }
+      function link(url, label, sub) {
+        return h('button', { class: 'li', onclick: function () { navigate(url); } }, h('span', { class: 'fi-ic' }, M.icon(url.indexOf('mando://') === 0 ? 'file' : 'globe', 18)),
+          h('span', { class: 'grow' }, h('span', { class: 't', text: label }), h('span', { class: 's', text: sub || url })));
+      }
+      function externalCard(url, search) {
+        let ok = null; try { const u = new URL(url); if (u.protocol === 'https:' || u.protocol === 'http:') ok = u; } catch (e) { /* invalid URL */ }
+        if (!ok) return M.empty('info', 'Invalid address', 'Enter a web address like example.com or a local path like /readme.txt.');
+        return h('div', { class: 'pad' },
+          h('div', { class: 'card stack' }, h('strong', { text: search ? 'Search the web' : ok.hostname }), h('p', { class: 'out', text: ok.href }),
+            !navigator.onLine ? h('p', { class: 'err', role: 'alert', text: 'You are offline. This link will work when you are back online.' }) : null, h('p', { class: 'row-hint', text: 'MANDO OS cannot display external websites inside the app. Browsers block this for most sites, and this environment blocks it entirely. Open the page in a new browser tab instead.' }),
+            h('div', { class: 'rowx' }, h('a', { class: 'btn primary', href: ok.href, target: '_blank', rel: 'noopener noreferrer' }, M.icon('globe', 18), 'Open in new tab'),
+              h('button', { class: 'btn', onclick: function () { M.copyText(ok.href).then(function (c) { M.toast(c ? 'Link copied' : 'Copy failed. Select the link text instead.', c ? 'info' : 'error'); }); } }, M.icon('copy', 18), 'Copy link'))));
+      }
+      function render() {
+        const url = stack[idx];
+        addr.value = url === 'mando://start' ? '' : url;
+        back.disabled = idx === 0; fwd.disabled = idx >= stack.length - 1;
+        star.style.color = isBm(url) ? 'var(--accent-text)' : '';
+        page.textContent = '';
+        if (url === 'mando://start') {
+          page.appendChild(h('div', { class: 'pad' },
+            h('div', { class: 'wordmark', text: 'MANDO BROWSER' }),
+            h('p', { class: 'row-hint', text: 'Type an address above. Local files from the Files app open here (for example /readme.txt). External sites open in a new tab because they cannot be embedded.' }),
+            h('div', { class: 'h3', text: 'Bookmarks' }),
+            data.bookmarks.length ? h('div', { class: 'card', style: 'padding:0' }, data.bookmarks.map(function (b) { return h('div', { class: 'bm' }, h('div', { style: 'flex:1;min-width:0' }, link(b.url, b.title)), h('button', { class: 'mini', style: 'margin-right:8px', 'aria-label': 'Remove bookmark ' + b.title, onclick: function () { data.bookmarks = data.bookmarks.filter(function (x) { return x !== b; }); saveData(); render(); } }, M.icon('trash', 16))); })) : M.empty('star', 'No bookmarks', 'Open a page and tap the star to bookmark it.'),
+            h('button', { class: 'btn', onclick: function () { navigate('mando://history'); } }, 'View history')));
+        } else if (url === 'mando://history') {
+          page.appendChild(h('div', { class: 'pad' }, h('div', { class: 'rowx' }, h('strong', { class: 'grow', text: 'History' }), h('button', { class: 'btn sm danger', disabled: !data.history.length, onclick: function () { M.confirm({ title: 'Clear browsing history?', message: 'All entries will be removed from this device.', confirmLabel: 'Clear', danger: true }).then(function (ok) { if (ok) { data.history = []; saveData(); render(); } }); }, text: 'Clear' })),
+            data.history.length ? h('div', { class: 'card', style: 'padding:0' }, data.history.map(function (x) { return link(x.url, x.url, M.fmtStamp(x.time)); })) : M.empty('globe', 'No history', 'Pages you visit are listed here.')));
+        } else if (url.indexOf('mando://search/') === 0) {
+          const q = decodeURIComponent(url.slice(15));
+          page.appendChild(externalCard('https://duckduckgo.com/?q=' + encodeURIComponent(q), true));
+        } else if (url.indexOf('mando://file') === 0) {
+          let path = url.slice(12) || '/'; try { path = decodeURIComponent(path); } catch (e) { /* keep raw path */ }
+          const n = FS.resolve(path, 'root');
+          if (!n) page.appendChild(M.empty('file', 'File not found', 'There is no file at ' + path + ' in the virtual drive.'));
+          else if (n.type === 'dir') page.appendChild(h('div', { class: 'list' }, FS.list(n.id).map(function (c) { return link('mando://file' + FS.pathOf(c.id), c.name + (c.type === 'dir' ? '/' : ''), FS.size(c)); })));
+          else if (n.content.indexOf('data:image') === 0) page.appendChild(h('img', { src: n.content, alt: n.name, style: 'max-width:100%;padding:16px' }));
+          else if (/\.html?$/i.test(n.name)) page.appendChild(h('iframe', { sandbox: '', srcdoc: n.content, title: n.name }));
+          else page.appendChild(h('pre', { class: 'out', style: 'margin:12px;white-space:pre-wrap', text: n.content }));
+        } else if (/^https?:/i.test(url)) page.appendChild(externalCard(url));
+        else page.appendChild(M.empty('info', 'Unknown address', 'This address is not supported.'));
+      }
+      addr.addEventListener('keydown', function (e) { if (e.key === 'Enter') { const u = normalize(addr.value); if (u) navigate(u); } });
+      root.append(h('div', { class: 'addr' }, back, fwd,
+        h('button', { class: 'mini', 'aria-label': 'Reload', onclick: render }, M.icon('reload', 18)),
+        h('button', { class: 'mini', 'aria-label': 'Start page', onclick: function () { navigate('mando://start'); } }, M.icon('home', 18)),
+        addr, star), page);
+      render();
+    }
+  });
+})();
+
+</script>
+<script>
+/* Music: plays audio files the user selects. Playlist names are remembered, files must be reselected. */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h;
+  const fmt = function (s) { if (!isFinite(s)) return '--:--'; s = Math.floor(s); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+  M.registerApp({
+    id: 'music', name: 'Music', icon: 'music', desc: 'Play audio files you select', category: 'Media', version: '2.1',
+    mount: function (root) {
+      let tracks = [], cur = -1, seeking = false;
+      let remembered = M.storage.get('playlistMetadata', []);
+      if (!Array.isArray(remembered)) remembered = [];
+      remembered = remembered.filter(function (x) { return x && typeof x.name === 'string'; }).slice(0, 200);
+      const audio = new Audio(); audio.preload = 'metadata';
+      const picker = h('input', { type: 'file', accept: 'audio/*', multiple: true, hidden: true, id: 'music-pick', 'aria-label': 'Choose audio files' });
+      const title = h('div', { class: 'trk-title', text: 'Nothing playing' }), sub = h('div', { class: 'trk-sub', text: 'Add audio files from your device' });
+      const seek = h('input', { type: 'range', min: 0, max: 1000, value: 0, step: 1, 'aria-label': 'Seek', disabled: true });
+      const el = h('span', { text: '0:00' }), dur = h('span', { text: '--:--' });
+      const playBtn = h('button', { class: 'big', 'aria-label': 'Play', onclick: toggle }, M.icon('play', 26));
+      const status = h('p', { class: 'err', role: 'alert', style: 'text-align:center' });
+      const listEl = h('div', { class: 'list plist', role: 'list' });
+      const savedNote = h('p', { class: 'row-hint', style: 'text-align:center' });
+
+      function paintBtn() { playBtn.textContent = ''; const playing = !audio.paused; playBtn.append(M.icon(playing ? 'pause' : 'play', 26)); playBtn.setAttribute('aria-label', playing ? 'Pause' : 'Play'); }
+      function paintList() {
+        listEl.textContent = '';
+        if (!tracks.length) { listEl.appendChild(M.empty('music', 'No tracks yet', 'Choose audio files you have the right to use. MANDO OS plays them with your browser’s built-in player.')); return; }
+        tracks.forEach(function (t, i) {
+          listEl.appendChild(h('button', { class: 'li' + (i === cur ? ' cur' : ''), role: 'listitem', 'aria-current': i === cur ? 'true' : null, onclick: function () { load(i, true); } },
+            h('span', { class: 'fi-ic' }, M.icon(i === cur && !audio.paused ? 'pause' : 'music', 18)),
+            h('span', { class: 'grow' }, h('span', { class: 't', text: t.name }), h('span', { class: 's', text: M.fmtBytes(t.size) + (t.type ? ' · ' + t.type : '') + (t.bad ? ' · cannot play' : '') }))));
+        });
+      }
+      function saveMeta() { M.storage.set('playlistMetadata', tracks.map(function (t) { return { name: t.name, size: t.size, type: t.type }; })); }
+      function load(i, autoplay) {
+        if (i < 0 || i >= tracks.length) return;
+        cur = i; status.textContent = '';
+        const t = tracks[i];
+        audio.src = t.url; title.textContent = t.name; sub.textContent = 'Track ' + (i + 1) + ' of ' + tracks.length + ' · No embedded metadata is read in this version';
+        seek.disabled = false; seek.value = 0; el.textContent = '0:00'; dur.textContent = '--:--';
+        if (autoplay) audio.play().catch(function (e) { if (e && e.name !== 'AbortError') fail(); });
+        paintList();
+      }
+      function fail() {
+        const t = tracks[cur]; if (!t) return;
+        t.bad = true; status.textContent = '“' + t.name + '” cannot be played. Your browser does not support this audio format.'; paintBtn(); paintList();
+      }
+      function toggle() {
+        if (cur < 0) { if (tracks.length) load(0, true); else picker.click(); return; }
+        if (audio.paused) audio.play().catch(function () { fail(); }); else audio.pause();
+      }
+      function step(d) {
+        if (!tracks.length) return;
+        let n = cur + d; if (n < 0) n = tracks.length - 1; if (n >= tracks.length) n = 0;
+        load(n, true);
+      }
+      audio.addEventListener('play', function () { paintBtn(); paintList(); });
+      audio.addEventListener('pause', function () { paintBtn(); paintList(); });
+      audio.addEventListener('loadedmetadata', function () { dur.textContent = fmt(audio.duration); });
+      audio.addEventListener('timeupdate', function () {
+        el.textContent = fmt(audio.currentTime);
+        if (!seeking && audio.duration) seek.value = Math.round(audio.currentTime / audio.duration * 1000);
+      });
+      audio.addEventListener('ended', function () { if (tracks.length > 1) step(1); else paintBtn(); });
+      audio.addEventListener('error', function () { if (audio.src) fail(); });
+      seek.addEventListener('input', function () { seeking = true; if (audio.duration) el.textContent = fmt(seek.value / 1000 * audio.duration); });
+      seek.addEventListener('change', function () { if (audio.duration) audio.currentTime = seek.value / 1000 * audio.duration; seeking = false; });
+
+      picker.addEventListener('change', function () {
+        const files = Array.prototype.slice.call(picker.files || []); picker.value = '';
+        let added = 0, skipped = 0;
+        files.forEach(function (f) {
+          if (f.type && f.type.indexOf('audio/') !== 0) { skipped++; return; }
+          tracks.push({ name: f.name.replace(/\.[^.]+$/, ''), size: f.size, type: f.type, url: URL.createObjectURL(f) }); added++;
+        });
+        if (skipped) status.textContent = skipped + ' file(s) skipped because they are not audio.';
+        if (added) { saveMeta(); savedNote.textContent = ''; if (cur < 0) load(tracks.length - added, false); M.notify('Tracks added', added + ' track(s) in your playlist', 'success'); }
+        paintList();
+      });
+      if (remembered.length) savedNote.textContent = 'Last session you had ' + remembered.length + ' track(s): ' + remembered.slice(0, 3).map(function (x) { return x.name; }).join(', ') + (remembered.length > 3 ? '…' : '') + '. Browsers cannot reopen those files automatically, so choose them again.';
+      root.append(picker, h('div', { class: 'player' },
+        h('div', { class: 'art', 'aria-hidden': 'true' }, M.icon('music', 72)), title, sub, seek, h('div', { class: 'times' }, el, dur),
+        h('div', { class: 'ctl' }, h('button', { 'aria-label': 'Previous track', onclick: function () { step(-1); } }, M.icon('prev', 22)), playBtn, h('button', { 'aria-label': 'Next track', onclick: function () { step(1); } }, M.icon('next', 22))),
+        status, h('div', { class: 'rowx', style: 'justify-content:center' },
+          h('button', { class: 'btn primary', onclick: function () { picker.click(); } }, M.icon('plus', 18), 'Add audio files'),
+          h('button', { class: 'btn', disabled: false, onclick: function () { audio.pause(); tracks.forEach(function (t) { URL.revokeObjectURL(t.url); }); tracks = []; cur = -1; audio.removeAttribute('src'); audio.load(); title.textContent = 'Nothing playing'; sub.textContent = 'Add audio files from your device'; seek.disabled = true; seek.value = 0; el.textContent = '0:00'; dur.textContent = '--:--'; saveMeta(); paintList(); paintBtn(); } }, 'Clear playlist')),
+        savedNote), listEl);
+      paintList();
+      return { unmount: function () { audio.pause(); audio.removeAttribute('src'); audio.load(); tracks.forEach(function (t) { URL.revokeObjectURL(t.url); }); tracks = []; } };
+    }
+  });
+})();
+
+</script>
+<script>
+/* Settings, System Monitor, App Store */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h;
+  M.getApp = M.getApp || function () {};
+
+  function kv(rows) {
+    const dl = h('dl', { class: 'kv' });
+    rows.forEach(function (r) { dl.append(h('dt', { text: r[0] }), h('dd', null, r[1] == null || r[1] === '' ? 'Not available in this environment' : r[1])); });
+    return dl;
+  }
+  M.kv = kv;
+  const card = function (title) { const kids = Array.prototype.slice.call(arguments, 1); return h('section', { class: 'card stack' }, h('div', { class: 'h3', text: title }), kids); };
+
+  /* ---------- export / import ---------- */
+  function buildExport() {
+    return JSON.stringify({
+      app: 'MANDO OS', version: M.VERSION, exported: new Date().toISOString(),
+      data: { settings: M.state.settings, notes: M.state.notes, tasks: M.state.tasks, checklist: M.state.checklist, installed: M.installed(), fs: M.fs.nodes, browser: M.storage.get('browser', {}) }
+    }, null, 2);
+  }
+  function parseImport(text) {
+    let obj;
+    try { obj = JSON.parse(text); } catch (e) { throw new Error('That is not valid JSON.'); }
+    if (!obj || typeof obj !== 'object' || obj.app !== 'MANDO OS' || !obj.data || typeof obj.data !== 'object') throw new Error('This file is not a MANDO OS export.');
+    const d = obj.data;
+    const known = M.apps.map(function (a) { return a.id; });
+    return {
+      settings: d.settings ? M.sanitize.settings(d.settings) : null,
+      notes: Array.isArray(d.notes) ? M.sanitize.notes(d.notes) : null,
+      tasks: Array.isArray(d.tasks) ? M.sanitize.tasks(d.tasks) : null,
+      checklist: d.checklist ? M.sanitize.checklist(d.checklist) : null,
+      installed: Array.isArray(d.installed) ? d.installed.filter(function (x) { return known.indexOf(x) >= 0; }) : null,
+      fs: Array.isArray(d.fs) ? d.fs : null,
+      browser: d.browser && typeof d.browser === 'object' ? d.browser : null
+    };
+  }
+
+  /* ================= SETTINGS ================= */
+  M.registerApp({
+    id: 'settings', name: 'Settings', icon: 'settings', desc: 'Appearance, data and privacy', category: 'System', version: '2.1', core: true,
+    mount: function (root) {
+      const s = M.state.settings;
+      const set = M.set;
+      const nameIn = h('input', { class: 'field', id: 'set-name', type: 'text', maxlength: 40, value: s.name, autocomplete: 'off', placeholder: 'Your name' });
+      nameIn.addEventListener('change', function () { set('name', nameIn.value.trim().slice(0, 40), 'Display name updated'); });
+      const storageInfo = h('span', { text: 'Checking…' });
+      if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(function (e) { storageInfo.textContent = M.fmtBytes(e.usage) + ' used of about ' + M.fmtBytes(e.quota) + ' (browser estimate for this site)'; }).catch(function () { storageInfo.textContent = 'Not available in this environment'; });
+      else storageInfo.textContent = 'Not available in this environment';
+      const appRows = h('div');
+      function paintApps() {
+        appRows.textContent = '';
+        M.apps.forEach(function (a) {
+          if (a.core) { appRows.appendChild(h('div', { class: 'row' }, h('span', { class: 'grow' }, h('span', { class: 'row-title', text: a.name }), h('span', { class: 'row-hint', text: 'Required system app' })), h('span', { class: 'pill', text: 'Always on' }))); return; }
+          appRows.appendChild(M.toggle('app-' + a.id, a.name, M.isInstalled(a.id), function (on) {
+            const list = M.installed().filter(function (x) { return x !== a.id; });
+            if (on) list.push(a.id); else if (M.wm.isOpen(a.id)) M.wm.close(a.id);
+            M.setInstalled(list); M.notify(on ? 'App installed' : 'App removed', a.name, 'info');
+          }, a.desc));
+        });
+      }
+      paintApps();
+      const dataOverview = h('div');
+      function paintData() {
+        dataOverview.textContent = '';
+        dataOverview.appendChild(kv([['Notes', String(M.state.notes.length)], ['Tasks', String(M.state.tasks.length)], ['Virtual files and folders', String(M.fs.nodes.length)], ['Stored by MANDO OS', M.fmtBytes(M.storage.bytes())], ['Local storage', M.storage.available() ? 'Available' : 'Blocked by this browser (data is not saved)']]));
+      }
+      paintData();
+      const exportBox = h('textarea', { class: 'field mono', id: 'export-box', readonly: true, rows: 5, 'aria-label': 'Exported data', hidden: true });
+      const importBox = h('textarea', { class: 'field mono', id: 'import-box', rows: 4, 'aria-label': 'Paste exported data here', placeholder: 'Paste exported JSON here' });
+      const importMsg = h('p', { class: 'err', role: 'alert' });
+      const importFile = h('input', { type: 'file', accept: '.json,application/json', hidden: true, id: 'import-file', 'aria-label': 'Choose export file' });
+      function doImport(text) {
+        importMsg.textContent = ''; importMsg.style.color = '';
+        let parsed;
+        try { parsed = parseImport(text); } catch (e) { importMsg.textContent = e.message; return; }
+        const parts = ['settings', 'notes', 'tasks', 'checklist', 'installed', 'fs', 'browser'].filter(function (k) { return parsed[k]; });
+        if (!parts.length) { importMsg.textContent = 'The file contains nothing MANDO OS can import.'; return; }
+        M.confirm({ title: 'Import data?', message: 'This replaces your current ' + parts.join(', ') + ' with the imported data. Export first if you want a backup.', confirmLabel: 'Import and restart', danger: true }).then(function (ok) {
+          if (!ok) return;
+          if (parsed.settings) M.storage.set('settings', parsed.settings);
+          if (parsed.notes) M.storage.set('notes', parsed.notes);
+          if (parsed.tasks) M.storage.set('tasks', parsed.tasks);
+          if (parsed.checklist) M.storage.set('checklist', parsed.checklist);
+          if (parsed.fs) M.storage.set('fs', parsed.fs);
+          if (parsed.browser) M.storage.set('browser', parsed.browser);
+          if (parsed.installed) { M.state.prefs.installed = parsed.installed; M.storage.set('preferences', M.state.prefs); }
+          M.toast('Import complete. Restarting…');
+          setTimeout(function () { location.reload(); }, 700);
+        });
+      }
+      importFile.addEventListener('change', function () {
+        const f = importFile.files && importFile.files[0]; importFile.value = '';
+        if (!f) return;
+        if (f.size > 5 * 1024 * 1024) { importMsg.textContent = 'That file is too large (over 5 MB).'; return; }
+        const r = new FileReader(); r.onload = function () { doImport(String(r.result)); }; r.onerror = function () { importMsg.textContent = 'Could not read that file.'; }; r.readAsText(f);
+      });
+
+      root.append(importFile, h('div', { class: 'pad' },
+        card('Appearance',
+          h('div', { class: 'row-title', text: 'Theme' }), M.segmented([['dark', 'Dark'], ['light', 'Light'], ['system', 'System']], s.theme, function (v) { set('theme', v, 'Theme: ' + v); }, 'Theme'),
+          h('div', { class: 'row-title', text: 'Accent color' }), M.segmented([['forest', 'Forest'], ['mint', 'Mint'], ['moss', 'Moss'], ['pine', 'Pine']], s.accent, function (v) { set('accent', v, 'Accent: ' + v); }, 'Accent color'),
+          h('div', { class: 'row-title', text: 'Wallpaper' }), M.segmented([['forest', 'Forest'], ['dusk', 'Dusk'], ['grid', 'Grid'], ['plain', 'Plain']], s.wallpaper, function (v) { set('wallpaper', v, 'Wallpaper: ' + v); }, 'Wallpaper'),
+          h('div', { class: 'row-title', text: 'Density' }), M.segmented([['comfortable', 'Comfortable'], ['compact', 'Compact']], s.density, function (v) { set('density', v, 'Density: ' + v); }, 'Interface density'),
+          M.toggle('set-anim', 'Animations', s.animations, function (v) { set('animations', v, 'Animations ' + (v ? 'on' : 'off')); }, 'Turn off to remove motion effects'),
+          M.toggle('set-boot', 'Startup animation', s.bootAnim, function (v) { set('bootAnim', v, 'Startup animation ' + (v ? 'on' : 'off')); }),
+          M.toggle('set-lock', 'Show lock screen at start', s.lockOnStart, function (v) { set('lockOnStart', v, 'Lock screen at start ' + (v ? 'on' : 'off')); }, 'The lock screen is decorative and is not a security feature')),
+        card('Personalization',
+          h('label', { for: 'set-name', class: 'row-title', text: 'Display name' }), nameIn,
+          h('div', { class: 'row-title', text: 'Greeting' }), M.segmented([['time', 'By time of day'], ['simple', 'Hello'], ['none', 'None']], s.greeting, function (v) { set('greeting', v, 'Greeting updated'); }, 'Greeting'),
+          h('div', { class: 'row-title', text: 'Clock' }), M.segmented([['auto', 'Automatic'], ['12', '12-hour'], ['24', '24-hour']], s.clock, function (v) { set('clock', v, 'Clock format updated'); }, 'Clock format'),
+          h('div', { class: 'row-title', text: 'Date' }), M.segmented([['locale', 'Short'], ['long', 'With year'], ['iso', 'YYYY-MM-DD']], s.dateFormat, function (v) { set('dateFormat', v, 'Date format updated'); }, 'Date format')),
+        card('Sound',
+          M.toggle('set-sound', 'Interface sounds', s.sounds, function (v) { set('sounds', v, 'Sounds ' + (v ? 'on' : 'off')); if (v) M.beep(660, 90); }, 'Short tones for unlock, notifications and opening apps'),
+          h('label', { class: 'row-title', for: 'set-vol', text: 'Volume' }),
+          h('input', { type: 'range', id: 'set-vol', min: 0, max: 100, value: s.volume, 'aria-label': 'Interface sound volume', oninput: function (e) { M.state.settings.volume = +e.target.value; }, onchange: function () { M.save.settings(); M.beep(660, 90); } }),
+          h('p', { class: 'limits', text: 'This only affects sounds made by MANDO OS, not your phone’s volume.' })),
+        card('Apps', h('p', { class: 'row-hint', text: 'Choose which apps appear on the home screen. You can also manage them in the App Store.' }), appRows),
+        card('System',
+          kv([['Version', 'MANDO OS ' + M.VERSION], ['Browser storage', storageInfo]]), dataOverview),
+        card('Install and offline', M.pwaPanel ? M.pwaPanel() : h('p', { class: 'row-hint', text: 'Not available in this copy.' })),
+        card('Privacy',
+          h('p', { text: 'MANDO OS stores your settings, notes, tasks, files and bookmarks in this browser only. Nothing is sent to a server and there is no account, tracking or analytics.' }),
+          h('p', { text: 'Permissions: none are requested. Importing or playing files uses the file picker, which only gives access to files you choose.' }),
+          h('p', { class: 'limits', text: 'Limits: a web page cannot read your phone’s full storage, installed apps, Wi-Fi or Bluetooth state, and cannot change Android settings.' })),
+        card('Data management',
+          h('div', { class: 'rowx' },
+            h('button', { class: 'btn', onclick: function () { exportBox.value = buildExport(); exportBox.hidden = false; M.notify('Export ready', 'Copy or download your data below', 'info'); } }, M.icon('upload', 18), 'Prepare export'),
+            h('button', { class: 'btn', onclick: function () { const t = buildExport(); M.copyText(t, exportBox.hidden ? null : exportBox).then(function (ok) { M.toast(ok ? 'Export copied' : 'Copy failed. Use Prepare export and select the text.', ok ? 'info' : 'error'); }); } }, M.icon('copy', 18), 'Copy JSON'),
+            h('button', { class: 'btn', onclick: function () { M.download('mando-os-export.json', buildExport(), 'application/json'); M.notify('Export downloaded', 'mando-os-export.json', 'success'); } }, M.icon('download', 18), 'Download')),
+          exportBox,
+          h('p', { class: 'limits', text: 'Some hosts block downloads. Copy JSON works everywhere.' }),
+          h('div', { class: 'row-title', text: 'Import' }),
+          h('div', { class: 'rowx' }, h('button', { class: 'btn', onclick: function () { importFile.click(); } }, 'Choose file'), h('button', { class: 'btn', onclick: function () { doImport(importBox.value); } }, 'Import pasted JSON')),
+          importBox, importMsg,
+          h('div', { class: 'row-title', text: 'Reset' }),
+          h('button', { class: 'btn danger', onclick: function () {
+            M.confirm({ title: 'Reset MANDO OS?', message: 'This permanently deletes all notes, tasks, files, bookmarks and settings stored by MANDO OS in this browser. Export first if you want a backup.', confirmLabel: 'Erase everything', danger: true }).then(function (ok) {
+              if (!ok) return;
+              M.flushers.clear(); M.storage.clearAll(); try { sessionStorage.removeItem('mando.booted'); } catch (e) { /* ignore */ }
+              location.reload();
+            });
+          } }, M.icon('trash', 18), 'Reset all local data')),
+        card('About MANDO OS',
+          h('p', { text: 'MANDO OS ' + M.VERSION + ' is an interactive operating-system experience that runs in your web browser, built with HTML, CSS and JavaScript.' }),
+          h('p', { class: 'limits', text: 'It is not a native Android app, not a replacement for Android or iOS and not a Linux installation. Apps like Terminal Lab are safe simulations and say so.'}))
+      ));
+      M.on('notes', paintData); M.on('tasks', paintData);
+    }
+  });
+
+  /* ================= SYSTEM MONITOR ================= */
+  M.registerApp({
+    id: 'sysmon', name: 'System Monitor', icon: 'monitor', desc: 'Live measurements and browser details', category: 'System', version: '2.1',
+    mount: function (root, ctx) {
+      const fpsEl = h('span', { class: 'big-num', text: '--' }), lagEl = h('span', { class: 'big-num', text: '--' });
+      const heapEl = h('span', { text: 'Not available in this environment' }), storEl = h('span', { text: 'Checking…' }), upEl = h('span');
+      const netEl = h('span'), battEl = h('span');
+      let frames = 0, last = performance.now(), raf = 0, lagMax = 0, lagLast = performance.now(), stop = false;
+      function loop(t) { if (stop) return; frames++; raf = requestAnimationFrame(loop); }
+      raf = requestAnimationFrame(loop);
+      const lagTimer = setInterval(function () { const now = performance.now(); lagMax = Math.max(lagMax, now - lagLast - 200); lagLast = now; }, 200);
+      function net() {
+        const c = navigator.connection;
+        netEl.textContent = (navigator.onLine ? 'Online' : 'Offline') + (c ? ' · ' + [c.effectiveType, c.downlink ? c.downlink + ' Mbps est.' : '', c.rtt != null ? c.rtt + ' ms rtt est.' : ''].filter(Boolean).join(' · ') : ' (no connection details exposed)');
+      }
+      function batt() { const b = M.battery; battEl.textContent = Math.round(b.level * 100) + '%' + (b.real ? (b.charging ? ' (charging)' : '') + ' reported by your browser' : ' simulated. This browser does not expose battery data'); }
+      function refresh() {
+        if (document.hidden || !ctx.isFront()) return;
+        const now = performance.now();
+        fpsEl.textContent = String(Math.round(frames * 1000 / (now - last))); frames = 0; last = now;
+        lagEl.textContent = Math.max(0, Math.round(lagMax)) + ' ms'; lagMax = 0;
+        upEl.textContent = Math.floor(now / 1000 / 60) + ' min ' + Math.floor(now / 1000) % 60 + ' s since this page loaded';
+        if (performance.memory) heapEl.textContent = M.fmtBytes(performance.memory.usedJSHeapSize) + ' used of ' + M.fmtBytes(performance.memory.jsHeapSizeLimit) + ' limit (Chrome only)';
+        net(); batt();
+      }
+      if (navigator.storage && navigator.storage.estimate) navigator.storage.estimate().then(function (e) { storEl.textContent = M.fmtBytes(e.usage) + ' of about ' + M.fmtBytes(e.quota); }).catch(function () { storEl.textContent = 'Not available in this environment'; });
+      else storEl.textContent = 'Not available in this environment';
+      const mq = function (q) { return window.matchMedia(q).matches; };
+      const tz = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { return ''; } })();
+      const timer = setInterval(refresh, 1000);
+      const onNet = function () { net(); }; window.addEventListener('online', onNet); window.addEventListener('offline', onNet);
+      refresh(); net(); batt();
+      root.appendChild(h('div', { class: 'pad' },
+        h('div', { class: 'note-box', text: 'Everything here is either measured live in this page or reported by your browser. Browsers do not expose CPU usage, RAM usage or temperature, so those are not shown and nothing is estimated or made up.' }),
+        h('div', { class: 'cards' },
+          card('Measured live', h('div', { class: 'rowx' }, h('div', { class: 'stack grow' }, h('span', { class: 'lbl', text: 'Frames per second' }), fpsEl), h('div', { class: 'stack grow' }, h('span', { class: 'lbl', text: 'Worst timer delay' }), lagEl)),
+            h('p', { class: 'limits', text: 'Frame rate counts animation frames in this page. Timer delay shows how long the main thread was blocked.' }), kv([['Page uptime', upEl], ['JS memory', heapEl]])),
+          card('Reported by your browser', kv([['Network', netEl], ['Battery', battEl], ['Storage', storEl], ['CPU threads', navigator.hardwareConcurrency ? String(navigator.hardwareConcurrency) : ''], ['Device memory', navigator.deviceMemory ? 'About ' + navigator.deviceMemory + ' GB (rounded and capped by the browser)' : '']])),
+          card('Display', kv([['Screen', screen.width + ' × ' + screen.height + ' px'], ['Viewport', window.innerWidth + ' × ' + window.innerHeight + ' px'], ['Pixel ratio', String(window.devicePixelRatio)], ['Touch points', String(navigator.maxTouchPoints || 0)], ['Prefers dark', mq('(prefers-color-scheme: dark)') ? 'Yes' : 'No'], ['Prefers reduced motion', mq('(prefers-reduced-motion: reduce)') ? 'Yes' : 'No']])),
+          card('Browser', kv([['Language', navigator.language], ['Time zone', tz], ['Platform', navigator.platform], ['Cookies enabled', String(navigator.cookieEnabled)], ['User agent', navigator.userAgent]]),
+            h('p', { class: 'limits', text: 'The user agent can be incomplete or changed by the browser. MANDO OS does not send any of this anywhere.' })))));
+      return { unmount: function () { stop = true; cancelAnimationFrame(raf); clearInterval(timer); clearInterval(lagTimer); window.removeEventListener('online', onNet); window.removeEventListener('offline', onNet); } };
+    }
+  });
+
+  /* ================= APP STORE ================= */
+  M.registerApp({
+    id: 'store', name: 'App Store', icon: 'store', desc: 'Built-in apps for your home screen', category: 'System', version: '2.1', core: true,
+    mount: function (root) {
+      const list = h('div');
+      function paint() {
+        list.textContent = '';
+        M.apps.forEach(function (a) {
+          const inst = M.isInstalled(a.id);
+          list.appendChild(h('div', { class: 'store-item' },
+            h('span', { class: 'fi-ic' }, M.icon(a.icon, 22)),
+            h('span', { class: 'grow' }, h('span', { class: 'row-title', text: a.name }), h('span', { class: 'row-hint', text: a.desc + ' · ' + a.category + ' · v' + a.version })),
+            inst ? h('button', { class: 'btn sm', onclick: function () { M.wm.open(a.id); } }, 'Open') : null,
+            a.core ? h('span', { class: 'pill', text: 'System' }) :
+              h('button', { class: 'btn sm ' + (inst ? 'danger' : 'primary'), onclick: function () {
+                const list2 = M.installed().filter(function (x) { return x !== a.id; });
+                if (!inst) list2.push(a.id); else if (M.wm.isOpen(a.id)) M.wm.close(a.id);
+                M.setInstalled(list2); M.notify(inst ? 'App removed' : 'App installed', a.name, 'info'); paint();
+              }, text: inst ? 'Remove' : 'Install' })));
+        });
+      }
+      paint();
+      root.appendChild(h('div', { class: 'pad' },
+        h('div', { class: 'note-box', text: 'This is a local catalog of the apps built into MANDO OS. Install and Remove only add or hide an app on the home screen. Nothing is downloaded, and native Android apps cannot be installed from here.' }),
+        h('div', { class: 'card' }, list),
+        h('p', { class: 'limits', text: 'Tip: use Edit home on the home screen to reorder apps.' })));
+      M.on('installed', paint);
+    }
+  });
+})();
+
+</script>
+<script>
+/* Security Center (honest, educational) and Cyber Lab (real browser crypto tools) */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h, kv = M.kv;
+  const card = function (title) { const kids = Array.prototype.slice.call(arguments, 1); return h('section', { class: 'card stack' }, h('div', { class: 'h3', text: title }), kids); };
+  const NA = 'Not available in this environment';
+
+  const CHECKLIST = [
+    ['update', 'Keep Android and your browser updated', 'Updates fix known security problems. Turn on automatic updates in Android settings and in your app store.'],
+    ['lock', 'Use a screen lock', 'A PIN, pattern or biometric lock protects your data if the phone is lost or stolen. Prefer a 6-digit PIN or longer.'],
+    ['manager', 'Use a password manager', 'Unique passwords for every account limit the damage when one site is breached.'],
+    ['mfa', 'Enable multi-factor authentication', 'Use an authenticator app or security key where possible. A stolen password alone is then not enough.'],
+    ['perms', 'Review app permissions', 'In Android Settings, check which apps can use your location, camera, microphone and contacts. Remove what an app does not need.'],
+    ['apk', 'Avoid installing unknown APKs', 'Install apps from trusted stores. Sideloaded files can hide malware and bypass store checks.'],
+    ['links', 'Verify suspicious links', 'Check the full address before you tap. Be careful with urgent messages asking you to log in or pay.'],
+    ['backup', 'Back up important data', 'Keep a recent backup somewhere you control, so a lost phone or ransomware is an inconvenience, not a disaster.'],
+    ['wifi', 'Be careful on public Wi-Fi', 'Prefer mobile data for sensitive logins, and only use sites that show HTTPS.']
+  ];
+  M.checklistView = function () {
+    const wrap = h('div', { class: 'stack' }), meter = h('div', { class: 'meter', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': CHECKLIST.length }, h('i')), summary = h('p', { class: 'row-hint', 'aria-live': 'polite' });
+    const items = h('div'), done = h('p', { class: 'row-hint' });
+    function paint() {
+      const n = CHECKLIST.filter(function (c) { return M.state.checklist[c[0]]; }).length;
+      meter.firstChild.style.width = (n / CHECKLIST.length * 100) + '%'; meter.setAttribute('aria-valuenow', n);
+      summary.textContent = n + ' of ' + CHECKLIST.length + ' completed. This is your own checklist. MANDO OS cannot check these things on your phone.';
+      done.textContent = n ? 'Completed: ' + CHECKLIST.filter(function (c) { return M.state.checklist[c[0]]; }).map(function (c) { return c[1]; }).join('; ') + '.' : 'No items completed yet.';
+    }
+    CHECKLIST.forEach(function (c) {
+      const on = !!M.state.checklist[c[0]];
+      const cb = h('button', { class: 'cb', role: 'checkbox', 'aria-checked': on ? 'true' : 'false', 'aria-labelledby': 'cl-' + c[0], onclick: function () {
+        const v = !M.state.checklist[c[0]]; if (v) M.state.checklist[c[0]] = true; else delete M.state.checklist[c[0]];
+        cb.setAttribute('aria-checked', v ? 'true' : 'false'); cb.textContent = ''; if (v) cb.appendChild(M.icon('check', 16));
+        M.save.checklist(); paint(); if (v) M.notify('Checklist item done', c[1], 'success');
+      } }, on ? M.icon('check', 16) : null);
+      items.appendChild(h('div', { class: 'chk' }, cb, h('div', { class: 'grow' }, h('div', { class: 'row-title', id: 'cl-' + c[0], text: c[1] }), h('div', { class: 'row-hint', text: c[2] }))));
+    });
+    paint();
+    wrap.append(meter, summary, items, done);
+    return wrap;
+  };
+
+  function copyBtn(getText, label) {
+    return h('button', { class: 'btn sm', onclick: function () { const t = getText(); if (!t) { M.toast('Nothing to copy yet.', 'error'); return; } M.copyText(t).then(function (ok) { M.toast(ok ? 'Copied' : 'Copy failed. Select the text and copy it manually.', ok ? 'info' : 'error'); }); } }, M.icon('copy', 16), label || 'Copy');
+  }
+  function netRows() {
+    const c = navigator.connection;
+    return [['Browser reports online', navigator.onLine ? 'Yes' : 'No'], ['Secure context', window.isSecureContext ? 'Yes' : 'No'],
+      ['Connection type', c && c.effectiveType], ['Estimated downlink', c && c.downlink ? c.downlink + ' Mbps' : ''], ['Estimated round trip', c && c.rtt != null ? c.rtt + ' ms' : ''], ['Data saver', c && c.saveData != null ? (c.saveData ? 'On' : 'Off') : '']];
+  }
+
+  /* strength estimate based on character pools; an estimate, not a guarantee */
+  const COMMON = ['password', '123456', '12345678', 'qwerty', 'letmein', 'admin', 'welcome', 'iloveyou', 'abc123', 'monkey', 'dragon', 'football', 'login', 'passw0rd'];
+  function strength(pw) {
+    if (!pw) return { bits: 0, label: 'Enter a password', pct: 0 };
+    let pool = 0;
+    if (/[a-z]/.test(pw)) pool += 26; if (/[A-Z]/.test(pw)) pool += 26; if (/[0-9]/.test(pw)) pool += 10; if (/[^A-Za-z0-9]/.test(pw)) pool += 32;
+    let bits = pw.length * Math.log2(pool || 1);
+    if (/(.)\1{2,}/.test(pw)) bits *= 0.8;
+    if (COMMON.some(function (c) { return pw.toLowerCase().indexOf(c) >= 0; })) bits = Math.min(bits, 20);
+    const label = bits < 28 ? 'Very weak' : bits < 36 ? 'Weak' : bits < 60 ? 'Fair' : bits < 80 ? 'Strong' : 'Very strong';
+    return { bits: Math.round(bits), label: label, pct: Math.min(100, bits / 100 * 100) };
+  }
+
+  /* ================= SECURITY CENTER ================= */
+  M.registerApp({
+    id: 'security', name: 'Security Center', icon: 'shield', desc: 'Browser checks and a safety checklist', category: 'Security', version: '2.1',
+    mount: function (root) {
+      const perms = h('div');
+      function inFrame() { try { return window.top !== window; } catch (e) { return true; } }
+      function storageOk() { return M.storage.available() ? 'Available' : 'Blocked'; }
+      ['geolocation', 'notifications', 'camera', 'microphone'].forEach(function (name) {
+        const val = h('span', { text: 'Checking…' });
+        perms.appendChild(h('div', { class: 'row' }, h('span', { class: 'grow row-title', text: name === 'geolocation' ? 'Location' : name[0].toUpperCase() + name.slice(1) }), val));
+        if (!navigator.permissions || !navigator.permissions.query) { val.textContent = NA; return; }
+        navigator.permissions.query({ name: name }).then(function (r) { val.textContent = r.state; }).catch(function () { val.textContent = NA; });
+      });
+      const pwIn = h('input', { class: 'field', id: 'sec-pw', type: 'password', autocomplete: 'off', 'aria-label': 'Password to test', placeholder: 'Type a password to test' });
+      const show = h('button', { class: 'btn sm', onclick: function () { const t = pwIn.type === 'password'; pwIn.type = t ? 'text' : 'password'; show.textContent = t ? 'Hide' : 'Show'; }, text: 'Show' });
+      const meter = h('div', { class: 'meter' }, h('i')), pwOut = h('p', { 'aria-live': 'polite', class: 'row-title', text: 'Enter a password' });
+      pwIn.addEventListener('input', function () { const s = strength(pwIn.value); meter.firstChild.style.width = s.pct + '%'; pwOut.textContent = pwIn.value ? s.label + ' (about ' + s.bits + ' bits)' : s.label; });
+      root.appendChild(h('div', { class: 'pad' },
+        h('div', { class: 'note-box', text: 'This is an educational tool. A web page cannot scan your phone, detect malware, inspect installed apps or verify your accounts, so nothing here claims to. It shows what this browser reports and helps you work through good habits.' }),
+        card('Browser security overview', kv([
+          ['Page protocol', location.protocol.replace(':', '') || NA],
+          ['Loaded over HTTPS', location.protocol === 'https:' ? 'Yes' : 'No (' + (location.protocol.replace(':', '') || 'unknown') + ')'],
+          ['Secure context', window.isSecureContext ? 'Yes' : 'No'],
+          ['Web Crypto available', window.crypto && window.crypto.subtle ? 'Yes' : 'No'],
+          ['Cookies enabled', navigator.cookieEnabled ? 'Yes' : 'No'],
+          ['Local storage', storageOk()],
+          ['Shown inside another page (frame)', inFrame() ? 'Yes' : 'No'],
+          ['Browser reports online', navigator.onLine ? 'Yes' : 'No']]),
+          h('p', { class: 'limits', text: 'HTTPS encrypts traffic between your browser and a site. It does not prove the site is trustworthy. Secure-context features such as Web Crypto only work on HTTPS or localhost.' })),
+        card('Permissions this page has', perms, h('p', { class: 'limits', text: 'Reported by your browser for this page. MANDO OS never asks for any of them.' })),
+        card('Password strength check', h('div', { class: 'rowx' }, h('div', { class: 'grow' }, pwIn), show), meter, pwOut,
+          h('p', { class: 'limits', text: 'The text is checked on this device and is never stored or sent. The result is a rough estimate based on length and character types. Long, random passphrases are best.' })),
+        card('Security checklist', M.checklistView()),
+        card('Protecting your Android device', h('ul', { class: 'row-hint', style: 'margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px' },
+          ['Install updates and reboot when asked.', 'Use Google Play Protect and keep it on, but do not rely on any one tool.', 'Turn off “install unknown apps” for every app that does not need it.', 'Enable Find My Device so you can lock or erase a lost phone.', 'Use the Privacy dashboard in Android settings to see which apps used sensitive permissions recently.'].map(function (t) { return h('li', { text: t }); }))),
+        card('Privacy and safe browsing', h('ul', { class: 'row-hint', style: 'margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px' },
+          ['Grant location, camera and microphone only while an app is in use.', 'Check the address bar for the real domain before you enter a password.', 'Do not reuse passwords. A breach on one site should not unlock another.', 'Be cautious with links in SMS and chat, even from contacts, as accounts get hijacked.', 'Close tabs and sign out on shared devices.'].map(function (t) { return h('li', { text: t }); }))),
+        h('p', { class: 'limits', text: 'Not available from a browser: malware scanning, app permission audits, Wi-Fi security status, lock-screen status and account breach checks.' })));
+    }
+  });
+
+  /* ================= CYBER LAB ================= */
+  function result(limits) {
+    const out = h('div', { class: 'out', role: 'status', 'aria-live': 'polite', text: 'No result yet.' });
+    return { out: out, set: function (t, bad) { out.textContent = t; out.classList.toggle('bad', !!bad); }, node: h('div', { class: 'stack' }, h('div', { class: 'lbl', text: 'Result' }), out, h('p', { class: 'limits', text: 'Limits: ' + limits })) };
+  }
+  function secureInt(max) {
+    const lim = Math.floor(0x100000000 / max) * max, buf = new Uint32Array(1);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= lim);
+    return buf[0] % max;
+  }
+  M.genPassword = function (len, opts) {
+    if (!(window.crypto && crypto.getRandomValues)) throw new Error('Secure random numbers are not available in this browser.');
+    const amb = /[Il1O0o|]/g, strip = function (s) { return opts.noAmbiguous ? s.replace(amb, '') : s; };
+    const sets = [];
+    if (opts.lower) sets.push(strip('abcdefghijklmnopqrstuvwxyz')); if (opts.upper) sets.push(strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'));
+    if (opts.digits) sets.push(strip('0123456789')); if (opts.symbols) sets.push('!@#$%^&*()-_=+[]{};:,.?/');
+    if (!sets.length) throw new Error('Select at least one character type.');
+    if (len < sets.length) throw new Error('Length is too short for the selected character types.');
+    const pool = sets.join(''), chars = sets.map(function (s) { return s[secureInt(s.length)]; });
+    while (chars.length < len) chars.push(pool[secureInt(pool.length)]);
+    for (let i = chars.length - 1; i > 0; i--) { const j = secureInt(i + 1), t = chars[i]; chars[i] = chars[j]; chars[j] = t; }
+    return { text: chars.join(''), bits: Math.round(len * Math.log2(pool.length)) };
+  };
+  M.b64 = {
+    enc: function (text) { const bytes = new TextEncoder().encode(text); let bin = ''; bytes.forEach(function (b) { bin += String.fromCharCode(b); }); return btoa(bin); },
+    dec: function (s) {
+      s = s.replace(/\s+/g, '');
+      if (!s) throw new Error('Enter some Base64 text to decode.');
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(s)) throw new Error('Invalid Base64: use only letters, digits, +, / and = padding.');
+      while (s.length % 4) s += '=';
+      let bin; try { bin = atob(s); } catch (e) { throw new Error('Invalid Base64 input.'); }
+      const bytes = Uint8Array.from(bin, function (c) { return c.charCodeAt(0); });
+      try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (e) { throw new Error('The decoded bytes are not valid UTF-8 text.'); }
+    }
+  };
+  M.sha256 = function (text) {
+    if (!(window.crypto && crypto.subtle)) return Promise.reject(new Error('Web Crypto is not available here. It requires a secure (HTTPS) page.'));
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(function (buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join(''); });
+  };
+
+  M.registerApp({
+    id: 'cyber', name: 'Cyber Lab', icon: 'flask', desc: 'Password, hash and encoding tools', category: 'Security', version: '2.1',
+    mount: function (root) {
+      function passwordTool() {
+        const len = h('input', { type: 'range', id: 'pw-len', min: 8, max: 64, value: 16, 'aria-label': 'Password length' }), lenLbl = h('span', { class: 'row-title', text: '16' });
+        len.addEventListener('input', function () { lenLbl.textContent = len.value; });
+        const o = { lower: true, upper: true, digits: true, symbols: true, noAmbiguous: false };
+        const toggles = [['lower', 'Lowercase letters'], ['upper', 'Uppercase letters'], ['digits', 'Numbers'], ['symbols', 'Symbols'], ['noAmbiguous', 'Exclude look-alike characters (I l 1 O 0 o |)']].map(function (t) { return M.toggle('pw-' + t[0], t[1], o[t[0]], function (v) { o[t[0]] = v; }); });
+        const res = result('Passwords are generated on this device with crypto.getRandomValues, shown once and never saved or sent. This is a generator, not a password manager.');
+        const out = h('input', { class: 'field mono', id: 'pw-out', readonly: true, 'aria-label': 'Generated password', placeholder: 'Generated password appears here' });
+        function gen() { try { const r = M.genPassword(+len.value, o); out.value = r.text; res.set('Generated ' + r.text.length + ' characters, about ' + r.bits + ' bits of entropy.'); } catch (e) { out.value = ''; res.set(e.message, true); } }
+        return h('div', { class: 'pad' }, h('div', { class: 'lbl', text: 'Input' }), h('div', { class: 'rowx' }, h('label', { for: 'pw-len', class: 'row-title', text: 'Length' }), lenLbl), len, toggles,
+          h('div', { class: 'lbl', text: 'Action' }), h('div', { class: 'rowx' }, h('button', { class: 'btn primary', onclick: gen }, 'Generate'), h('button', { class: 'btn', onclick: function () { if (!out.value) { M.toast('Generate a password first.', 'error'); return; } M.copyText(out.value, out).then(function (ok) { M.toast(ok ? 'Password copied' : 'Copy failed. Select the text manually.', ok ? 'info' : 'error'); }); } }, M.icon('copy', 16), 'Copy')), out, res.node);
+      }
+      function hashTool() {
+        const inp = h('textarea', { class: 'field mono', id: 'hash-in', 'aria-label': 'Text to hash', placeholder: 'Text to hash' }), res = result('Only SHA-256 is implemented. A hash is a one-way fingerprint, not encryption, and cannot simply be reversed to recover the text.');
+        let last = '';
+        return h('div', { class: 'pad' }, h('div', { class: 'lbl', text: 'Input' }), inp, h('div', { class: 'lbl', text: 'Action' }),
+          h('div', { class: 'rowx' }, h('button', { class: 'btn primary', onclick: function () {
+            M.sha256(inp.value).then(function (hex) { last = hex; res.set(hex + '\n(' + new TextEncoder().encode(inp.value).length + ' bytes hashed)'); }).catch(function (e) { last = ''; res.set(e.message, true); });
+          } }, 'Calculate SHA-256'), copyBtn(function () { return last; }, 'Copy hash')), res.node);
+      }
+      function encodeTool() {
+        const inp = h('textarea', { class: 'field mono', id: 'enc-in', 'aria-label': 'Text to encode or decode', placeholder: 'Text or Base64' }), res = result('Base64 is an encoding that anyone can reverse. It is not encryption and gives no secrecy. Text is handled as UTF-8.');
+        let last = '';
+        const run = function (fn) { try { last = fn(inp.value); res.set(last); } catch (e) { last = ''; res.set(e.message, true); } };
+        return h('div', { class: 'pad' }, h('div', { class: 'lbl', text: 'Input' }), inp, h('div', { class: 'lbl', text: 'Action' }),
+          h('div', { class: 'rowx' }, h('button', { class: 'btn primary', onclick: function () { if (!inp.value) { res.set('Enter some text to encode.', true); return; } run(M.b64.enc); } }, 'Encode'), h('button', { class: 'btn', onclick: function () { run(M.b64.dec); } }, 'Decode'), copyBtn(function () { return last; })), res.node);
+      }
+      function networkTool() {
+        const box = h('div'); const paint = function () { box.textContent = ''; box.appendChild(kv(netRows())); };
+        paint(); window.addEventListener('online', paint); window.addEventListener('offline', paint);
+        return h('div', { class: 'pad' }, h('div', { class: 'lbl', text: 'Result (live)' }), box,
+          h('p', { class: 'limits', text: 'Limits: only values your browser exposes are shown. MANDO OS does not scan networks, probe other devices or look up your public IP address.' }));
+      }
+      root.appendChild(M.tabs([
+        { id: 'pw', label: 'Passwords', build: passwordTool }, { id: 'hash', label: 'Hash', build: hashTool }, { id: 'enc', label: 'Base64', build: encodeTool },
+        { id: 'net', label: 'Network', build: networkTool }, { id: 'chk', label: 'Checklist', build: function () { return h('div', { class: 'pad' }, M.checklistView()); } }
+      ]));
+    }
+  });
+})();
+
+</script>
+<script>
+/* MANDO OS PWA layer: service worker registration, update flow, install prompt, offline/online events,
+ * persistent-storage request. Disabled automatically in single-file builds and on non-HTTPS pages.
+ * Nothing here grants extra Android permissions: an installed PWA has the same browser limits as the website. */
+(function () {
+  'use strict';
+  const M = window.MANDO, h = M.h;
+  const hasManifest = !!document.querySelector('link[rel="manifest"]');
+  const secure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const swOk = hasManifest && secure && 'serviceWorker' in navigator;
+  const standalone = function () {
+    return window.matchMedia('(display-mode: standalone)').matches || window.matchMedia('(display-mode: minimal-ui)').matches || navigator.standalone === true;
+  };
+  const st = (M.pwa = {
+    swSupported: swOk, swState: swOk ? 'registering' : 'unavailable', waiting: null, applying: false, deferredPrompt: null,
+    installed: standalone(), cacheName: '', cacheEntries: null, persisted: null, reg: null, lastCheck: 0,
+    reason: !hasManifest ? 'This copy runs as a single file or preview page, so installing and offline caching are not available here. Open the hosted copy of MANDO OS to install it.'
+      : !secure ? 'Installing and offline caching need HTTPS (or localhost). This page is not served securely.'
+      : !('serviceWorker' in navigator) ? 'This browser does not support service workers, so offline caching is unavailable.' : ''
+  });
+  const emit = function () { M.emit('pwa'); };
+
+  /* ---------- offline / online ---------- */
+  document.documentElement.setAttribute('data-net', navigator.onLine ? 'online' : 'offline');
+  window.addEventListener('offline', function () {
+    document.documentElement.setAttribute('data-net', 'offline');
+    M.notify('You are offline', st.swState === 'ready' || st.swState === 'update' ? 'MANDO OS keeps working. Your data stays on this device.' : 'Some features need a connection. Your data stays on this device.', 'info');
+    emit();
+  });
+  window.addEventListener('online', function () {
+    document.documentElement.setAttribute('data-net', 'online');
+    M.notify('Back online', 'Connection restored.', 'success');
+    if (st.reg) st.reg.update().catch(function () { /* will retry later */ });
+    emit();
+  });
+
+  /* ---------- service worker ---------- */
+  function refreshInfo() {
+    if (!('caches' in window)) return;
+    const w = (navigator.serviceWorker && navigator.serviceWorker.controller) || (st.reg && st.reg.active);
+    if (w) w.postMessage({ type: 'GET_VERSION' });
+  }
+  function ready() {
+    st.swState = 'ready';
+    if (!M.state.prefs.offlineNotified) {
+      M.state.prefs.offlineNotified = true; M.save.prefs();
+      M.notify('Ready for offline use', 'MANDO OS is saved on this device and starts without internet.', 'success');
+    }
+    refreshInfo(); emit();
+  }
+  function setWaiting(w) {
+    st.waiting = w; st.swState = 'update';
+    M.notify('Update ready', 'Tap Restart to update on the home screen or in Settings. Your data is kept.', 'info');
+    emit();
+  }
+  function watch(worker) {
+    if (!worker) return;
+    worker.addEventListener('statechange', function () {
+      if (worker.state === 'installed') { if (navigator.serviceWorker.controller) setWaiting(worker); else ready(); }
+    });
+  }
+  M.pwa.applyUpdate = function () {
+    if (!st.waiting) return;
+    M.flushers.forEach(function (f) { try { f(); } catch (e) { /* keep going */ } });
+    st.applying = true;
+    st.waiting.postMessage({ type: 'SKIP_WAITING' });
+  };
+  M.pwa.checkForUpdates = function () {
+    if (!st.reg) { M.toast('Updates are not available in this copy.', 'error'); return Promise.resolve(); }
+    if (!navigator.onLine) { M.toast('You are offline. Connect to check for updates.', 'error'); return Promise.resolve(); }
+    return st.reg.update().then(function () {
+      st.lastCheck = Date.now();
+      if (!st.waiting && !st.reg.installing) M.toast('MANDO OS is up to date.');
+    }).catch(function () { M.toast('Could not check for updates. Try again later.', 'error'); });
+  };
+  if (swOk) {
+    navigator.serviceWorker.addEventListener('controllerchange', function () { if (st.applying) location.reload(); else refreshInfo(); });
+    navigator.serviceWorker.addEventListener('message', function (e) {
+      if (e.data && e.data.type === 'VERSION') {
+        st.cacheName = e.data.cache;
+        caches.open(e.data.cache).then(function (c) { return c.keys(); }).then(function (k) { st.cacheEntries = k.length; emit(); }).catch(function () { emit(); });
+      }
+    });
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' }).then(function (reg) {
+        st.reg = reg;
+        if (reg.waiting && navigator.serviceWorker.controller) setWaiting(reg.waiting);
+        else if (reg.installing) watch(reg.installing);
+        else if (reg.active) ready();
+        reg.addEventListener('updatefound', function () { watch(reg.installing); });
+      }).catch(function (err) {
+        console.error(err); st.swState = 'error'; st.reason = 'The service worker could not be registered, so offline mode is unavailable.'; emit();
+      });
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden && st.reg && navigator.onLine && Date.now() - st.lastCheck > 3600000) { st.lastCheck = Date.now(); st.reg.update().catch(function () { /* retry later */ }); }
+    });
+  }
+
+  /* ---------- install ---------- */
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); st.deferredPrompt = e; emit(); });
+  window.addEventListener('appinstalled', function () {
+    st.deferredPrompt = null; st.installed = true;
+    M.notify('MANDO OS installed', 'Open it from your home screen or app drawer.', 'success'); emit();
+  });
+  M.pwa.install = function () {
+    const p = st.deferredPrompt;
+    if (!p) { M.toast('Use the browser menu: Install app or Add to Home screen.', 'info'); return Promise.resolve('unavailable'); }
+    st.deferredPrompt = null; emit(); p.prompt();
+    return p.userChoice.then(function (r) { if (r.outcome !== 'accepted') M.toast('Install cancelled. You can install later from Settings.'); return r.outcome; });
+  };
+  window.matchMedia('(display-mode: standalone)').addEventListener('change', function () { st.installed = standalone(); emit(); });
+
+  /* ---------- persistent storage ---------- */
+  if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(function (v) { st.persisted = v; emit(); }).catch(function () { /* unknown */ });
+  M.pwa.persist = function () {
+    if (!(navigator.storage && navigator.storage.persist)) { M.toast('This browser cannot protect storage.', 'error'); return Promise.resolve(false); }
+    return navigator.storage.persist().then(function (ok) {
+      st.persisted = ok; emit();
+      M.notify(ok ? 'Storage protected' : 'Not granted', ok ? 'The browser will not clear MANDO OS data automatically.' : 'The browser declined. Installing the app or using it more often can help. Export backups regularly.', ok ? 'success' : 'info');
+      return ok;
+    });
+  };
+
+  /* ---------- UI: Settings panel + home update banner ---------- */
+  M.pwaPanel = function () {
+    const box = h('div', { class: 'stack' });
+    function offlineText() {
+      return { unavailable: 'Not available in this copy', registering: 'Preparing…', ready: 'Ready. Starts without internet', update: 'Ready. Update waiting', error: 'Failed to start' }[st.swState];
+    }
+    function paint() {
+      box.textContent = '';
+      box.append(M.kv([
+        ['Running as installed app', st.installed ? 'Yes, in its own window' : 'No, in a browser tab'],
+        ['Offline start', offlineText()],
+        ['Cached version', st.cacheName ? st.cacheName.replace('mando-os-', '') + (st.cacheEntries != null ? ' (' + st.cacheEntries + ' files)' : '') : ''],
+        ['Connection', navigator.onLine ? 'Online' : 'Offline'],
+        ['Data protection', !(navigator.storage && navigator.storage.persist) ? '' : st.persisted ? 'Protected from automatic cleanup' : 'Standard (browser may clear it if storage runs low)']
+      ]));
+      if (st.reason) box.append(h('div', { class: 'note-box', text: st.reason }));
+      const btns = h('div', { class: 'rowx' });
+      btns.append(
+        h('button', { class: 'btn' + (st.deferredPrompt && !st.installed ? ' primary' : ''), disabled: !st.deferredPrompt || st.installed, onclick: function () { M.pwa.install(); } }, M.icon('download', 18), st.installed ? 'Installed' : 'Install MANDO OS'),
+        h('button', { class: 'btn', disabled: !st.swSupported, onclick: function () { M.pwa.checkForUpdates(); } }, M.icon('reload', 18), 'Check for updates'));
+      if (st.waiting) btns.append(h('button', { class: 'btn primary', onclick: M.pwa.applyUpdate }, 'Restart to update'));
+      if (navigator.storage && navigator.storage.persist && st.persisted === false) btns.append(h('button', { class: 'btn', onclick: function () { M.pwa.persist(); } }, 'Protect my data'));
+      box.append(btns);
+      if (!st.installed && st.swSupported && !st.deferredPrompt) box.append(h('p', { class: 'limits', text: 'If Install is greyed out: open the Chrome menu (three dots) and choose Install app or Add to Home screen. Chrome only offers it after the page has been used for a moment.' }));
+      box.append(h('p', { class: 'limits', text: 'Installing gives MANDO OS its own icon, window and offline start. It does not add Android permissions or hardware access: the same browser limits still apply. Updates never delete your notes, tasks, files or settings, because those are stored separately from the app files.' }));
+    }
+    M.on('pwa', paint); paint();
+    return box;
+  };
+  M.on('pwa', function () {
+    const slot = document.getElementById('home-pwa');
+    if (!slot) return;
+    slot.textContent = '';
+    if (!st.waiting) return;
+    slot.appendChild(h('div', { class: 'card', style: 'display:flex;gap:12px;align-items:center;flex-wrap:wrap' },
+      h('div', { style: 'flex:1;min-width:160px' }, h('strong', { text: 'Update ready' }), h('div', { class: 'row-hint', text: 'A new version of MANDO OS is downloaded. Your data is kept.' })),
+      h('button', { class: 'btn primary', onclick: M.pwa.applyUpdate, text: 'Restart to update' })));
+  });
+})();
+
+</script>
+<script>
+/* MANDO OS entry point. Runs after all apps have registered. */
+(function () {
+  'use strict';
+  const M = window.MANDO;
+  window.addEventListener('error', function (e) {
+    console.error(e.error || e.message);
+    if (M.notify) M.toast('Something went wrong. Your saved data is safe.', 'error');
+  });
+  window.addEventListener('unhandledrejection', function (e) { console.error(e.reason); });
+  M.startShell();
+  // Home-screen shortcuts open an app directly (?app=notes). Only installed apps are accepted.
+  try {
+    const want = new URLSearchParams(location.search).get('app');
+    if (want && M.getApp(want) && M.isInstalled(want)) { if (M.isLocked()) M.pendingApp = want; else M.wm.open(want); }
+  } catch (e) { /* ignore malformed URLs */ }
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#080b09">
+<meta name="description" content="MANDO OS: an interactive operating-system experience for your browser. Works offline.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="MANDO OS">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="manifest" href="manifest.webmanifest" data-pwa>
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg" data-pwa>
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png" data-pwa>
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" data-pwa>
+<title>MANDO OS</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="apps.css">
+</head>
+<body>
+<div id="os">
+  <div id="wall"></div>
+  <div id="stage">
+    <header id="statusbar" role="banner"></header>
+    <main id="home" aria-label="Home screen"></main>
+    <div id="windows"></div>
+    <nav id="dock" aria-label="Dock"></nav>
+    <div id="switcher" hidden aria-label="Open apps"></div>
+    <div id="scrim" hidden></div>
+  </div>
+  <div id="lock" aria-label="Lock screen"></div>
+  <div id="dialogs"></div>
+  <div id="toast" role="status" hidden></div>
+  <div id="live" class="sr-only" aria-live="polite"></div>
+  <div id="dim"></div>
+  <div id="boot" aria-label="Starting MANDO OS">
+    <div class="boot-in">
+      <svg class="boot-logo" viewBox="0 0 512 512" width="88" height="88" aria-hidden="true"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a1f"/><stop offset="1" stop-color="#0a0f0b"/></linearGradient></defs><rect width="512" height="512" rx="115" fill="url(#bg)"/><g fill="none" stroke-width="43" stroke-linecap="round" stroke-linejoin="round"><path d="M143 369V143M369 143V369" stroke="#8dbb91"/><path d="M143 143L256 270L369 143" stroke="#f5f7f4"/></g><circle cx="256" cy="396" r="16" fill="#8dbb91"/></svg>
+      <div class="wordmark">MANDO<b>OS</b></div><div class="boot-bar"><i></i></div><div class="boot-sub">Starting up</div>
+    </div>
+  </div>
+  <noscript><p style="position:absolute;z-index:99;inset:0;padding:24px;background:#080b09;color:#f5f7f4">MANDO OS needs JavaScript to run.</p></noscript>
+</div>
+<script src="js/core.js"></script>
+<script src="js/shell.js"></script>
+<script src="js/apps-basic.js"></script>
+<script src="js/apps-files.js"></script>
+<script src="js/apps-net.js"></script>
+<script src="js/apps-media.js"></script>
+<script src="js/apps-system.js"></script>
+<script src="js/apps-security.js"></script>
+<script src="js/pwa.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
